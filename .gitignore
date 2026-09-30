@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller 产物
+build/
+dist/
+release/
+*.spec
+_MEI*/
+
+# 运行时临时文件
+*.wav.tmp
+*.sbc
+_cont_tone.wav
+probe.txt
+out*.txt
+err*.txt
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
