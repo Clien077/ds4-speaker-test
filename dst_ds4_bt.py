@@ -162,6 +162,8 @@ class Ds4HidDevice:
     output_report_length: int = 0
     usage_page: int = 0
     usage: int = 0
+    #: 该接口暴露的输出报告 ID（用来判断能不能走音频报告通路）
+    output_report_ids: Tuple[int, ...] = ()
 
     @property
     def model(self) -> str:
@@ -177,12 +179,41 @@ class Ds4HidDevice:
         return "?"
 
     @property
+    def transport_text(self) -> str:
+        if self.product_id == 0x0BA0:
+            return "USB 无线适配器"
+        return {"BT": "蓝牙直连", "USB": "USB 数据线直连", "?": "未知连接"}[self.transport]
+
+    @property
     def is_bluetooth(self) -> bool:
         return self.transport == "BT"
 
     @property
+    def has_audio_reports(self) -> bool:
+        """接口是否暴露了音频报告（0x14/0x17）—— 这才是能否驱动内置扬声器的真正条件。"""
+        return bool({AUDIO_REPORT_ID_2, AUDIO_REPORT_ID_4} & set(self.output_report_ids))
+
+    @property
+    def supports_speaker(self) -> bool:
+        """能否驱动**内置扬声器**。
+
+        不看"蓝牙还是 USB"，只看这个 HID 接口有没有暴露音频报告：
+          * 蓝牙直连            → 有（0x14/0x17）
+          * 索尼官方 USB 无线适配器 CUH-ZWA1 → 有（插在 USB 口上也算"有线"）
+          * USB 数据线直连手柄   → 没有（描述符里最大输出报告只有 32 字节）
+        """
+        if self.output_report_ids:
+            return self.has_audio_reports
+        # 读不到报告清单时退回到经验判断
+        return self.is_bluetooth or self.product_id == 0x0BA0
+
+    @property
     def label(self) -> str:
-        return "%s · %s · 输出报告 %d 字节" % (self.model, self.transport, self.output_report_length)
+        cap = "内置扬声器可用" if self.supports_speaker else "无音频报告（扬声器不可用）"
+        return "%s · %s · 输出报告 %s · %s" % (
+            self.model, self.transport_text,
+            ",".join("0x%02X" % r for r in self.output_report_ids) or "%d 字节" % self.output_report_length,
+            cap)
 
 
 def find_ds4_hid_devices(include_dualsense: bool = True) -> List[Ds4HidDevice]:
@@ -202,12 +233,15 @@ def find_ds4_hid_devices(include_dualsense: bool = True) -> List[Ds4HidDevice]:
             continue
         out_len = 0
         usage_page = usage = 0
+        report_ids: List[int] = []
         try:
             dev.open()
             caps = dev.hid_caps
             out_len = int(caps.output_report_byte_length)
             usage_page = int(caps.usage_page)
             usage = int(caps.usage)
+            for rep in dev.find_output_reports():
+                report_ids.append(int(rep.report_id))
         except Exception:  # noqa: BLE001 - 被独占占用时拿不到 caps 也没关系
             pass
         finally:
@@ -225,10 +259,11 @@ def find_ds4_hid_devices(include_dualsense: bool = True) -> List[Ds4HidDevice]:
                 output_report_length=out_len,
                 usage_page=usage_page,
                 usage=usage,
+                output_report_ids=tuple(sorted(set(report_ids))),
             )
         )
-    # 蓝牙优先，其次按 PID
-    found.sort(key=lambda d: (not d.is_bluetooth, d.product_id, d.path))
+    # 能驱动扬声器的排前面，其次蓝牙优先，再按 PID
+    found.sort(key=lambda d: (not d.supports_speaker, not d.is_bluetooth, d.product_id, d.path))
     return found
 
 
@@ -717,11 +752,18 @@ class Ds4BtSpeaker:
 
     # ---------------------------------------------------------------- 设备
     def open(self) -> None:
-        if not self.device.is_bluetooth:
+        if not self.device.supports_speaker:
             raise RuntimeError(
-                "手柄当前是 %s 连接，内置扬声器只能通过**蓝牙**驱动。"
-                "请用手柄的 Share + PS 键配对电脑（或拔掉 USB 线改用蓝牙），再重试。"
-                % self.device.transport
+                "这个手柄 HID 接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。\n"
+                "  当前连接：%s\n"
+                "  接口输出报告：%s（USB 数据线直连时最大只有 32 字节，装不下 270/462 字节的音频报告）\n"
+                "能驱动内置扬声器的两种连接方式：\n"
+                "  1) 蓝牙直连 —— 拔掉 USB 线，长按手柄 Share + PS 键配对电脑；\n"
+                "  2) 索尼官方 USB 无线适配器（CUH-ZWA1）—— 手柄与适配器配对后插在 USB 口上。\n"
+                "只有 USB 数据线时，可以测 3.5mm 耳机口：python ds4_speaker_test.py --wired"
+                % (self.device.transport_text,
+                   ",".join("0x%02X" % r for r in self.device.output_report_ids)
+                   or "未知")
             )
         self.writer.open()
 
@@ -825,14 +867,76 @@ class Ds4BtSpeaker:
 def pick_bt_device(
     devices: Optional[Sequence[Ds4HidDevice]] = None, require_bt: bool = True
 ) -> Optional[Ds4HidDevice]:
+    """挑一个能驱动内置扬声器的接口。
+
+    ``require_bt=True``（默认）时只在**蓝牙直连**里挑；
+    ``require_bt=False`` 时蓝牙和"暴露了音频报告的 USB 接口"（官方无线适配器）都算。
+    """
     devs = list(devices) if devices is not None else find_ds4_hid_devices()
     if require_bt:
         devs = [d for d in devs if d.is_bluetooth]
+    else:
+        devs = [d for d in devs if d.supports_speaker]
     if not devs:
         return None
-    # 优先 0x09CC/0x05C4
-    devs.sort(key=lambda d: (d.product_id not in DS4_PIDS, d.output_report_length))
+    devs.sort(key=lambda d: (not d.supports_speaker, d.product_id not in DS4_PIDS,
+                             d.output_report_length))
     return devs[0]
+
+
+def pick_speaker_device(
+    devices: Optional[Sequence[Ds4HidDevice]] = None, allow_usb_adapter: bool = True
+) -> Optional[Ds4HidDevice]:
+    """挑任何**能驱动内置扬声器**的接口：蓝牙直连优先，其次 USB 无线适配器。"""
+    devs = list(devices) if devices is not None else find_ds4_hid_devices()
+    ok = [d for d in devs if d.supports_speaker and (allow_usb_adapter or d.is_bluetooth)]
+    if not ok:
+        return None
+    ok.sort(key=lambda d: (not d.is_bluetooth, d.product_id not in DS4_PIDS, d.path))
+    return ok[0]
+
+
+#: USB 数据线直连时的手柄输出报告：32 字节、报告 ID 0x05
+USB_REPORT_ID = 0x05
+USB_REPORT_SIZE = 32
+
+
+def build_usb_control_report(
+    led: Tuple[int, int, int] = (0, 255, 0), rumble: Tuple[int, int] = (0, 0),
+    size: int = USB_REPORT_SIZE,
+) -> bytes:
+    """USB 数据线直连时的 0x05 输出报告（只能点灯/震动，**没有**音频通路）。
+
+    布局（Linux hid-sony / hid-playstation 一致）：
+        [0]=0x05  [1]=valid_flag0(0x01 马达 | 0x02 灯条)  [4]=motor_right
+        [5]=motor_left  [6..8]=灯条 RGB
+    """
+    rep = bytearray(max(int(size), USB_REPORT_SIZE))
+    rep[0] = USB_REPORT_ID
+    rep[1] = 0x03               # 马达 + 灯条都有效
+    rep[4] = int(rumble[0]) & 0xFF
+    rep[5] = int(rumble[1]) & 0xFF
+    rep[6] = int(led[0]) & 0xFF
+    rep[7] = int(led[1]) & 0xFF
+    rep[8] = int(led[2]) & 0xFF
+    return bytes(rep)
+
+
+def usb_channel_check(
+    device: Ds4HidDevice, led: Tuple[int, int, int] = (0, 255, 0),
+    rumble: int = 200, hold: float = 2.0,
+) -> None:
+    """有线模式下验证 HID 通道：点灯 + 震动（扬声器通路不存在，只能验证这个）。"""
+    writer = HidWriter(device.path)
+    writer.open()
+    try:
+        for _ in range(3):
+            writer.write(build_usb_control_report(led, (0, rumble)))
+            time.sleep(0.3)
+        time.sleep(max(0.0, hold))
+        writer.write(build_usb_control_report(led, (0, 0)))
+    finally:
+        writer.close()
 
 
 def format_hid_list(devices: Optional[Sequence[Ds4HidDevice]] = None) -> str:
@@ -841,6 +945,14 @@ def format_hid_list(devices: Optional[Sequence[Ds4HidDevice]] = None) -> str:
         return "没有找到任何 PlayStation 手柄 HID 接口（请连接手柄后重试）。"
     lines = ["找到 %d 个手柄 HID 接口：" % len(devs)]
     for d in devs:
-        lines.append("  " + d.label + ("   ← 可用于内置扬声器" if d.is_bluetooth else "   （USB：内置扬声器不可用）"))
+        mark = "   ← 可驱动内置扬声器" if d.supports_speaker else "   ← 不能驱动内置扬声器"
+        lines.append("  " + d.label + mark)
         lines.append("      " + d.path)
+    if not any(d.supports_speaker for d in devs):
+        lines.append("")
+        lines.append("说明：USB 数据线直连时，手柄 HID 描述符里最大输出报告只有 32 字节、")
+        lines.append("      且只暴露 0x05（灯条/震动），装不下 270/462 字节的音频报告，")
+        lines.append("      所以内置扬声器在数据线连接下物理上无法驱动（实测写入返回 err=87）。")
+        lines.append("      要测内置扬声器：① 蓝牙直连；② 索尼官方 USB 无线适配器 CUH-ZWA1。")
+        lines.append("      只有数据线时可用 --wired 测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。")
     return "\n".join(lines)
