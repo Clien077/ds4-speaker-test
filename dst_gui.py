@@ -18,8 +18,9 @@ from dst_audio import (
 )
 from dst_devices import AudioDevice, list_devices, pick_input, pick_output
 from dst_ds4_bt import (
-    OUTPUT_DEFAULT, SBC_FRAMES_PER_SECOND, Ds4BtSpeaker, decode_sbc_frames,
-    encode_sbc_file, encode_sbc_pcm, find_ds4_hid_devices, pick_bt_device,
+    OUTPUT_DEFAULT, SBC_FRAMES_PER_SECOND, USB_REPORT_ID, Ds4BtSpeaker, decode_sbc_frames,
+    encode_sbc_file, encode_sbc_pcm, find_ds4_hid_devices, pick_speaker_device,
+    usb_channel_check,
 )
 from dst_player import Player, Recorder
 
@@ -75,11 +76,11 @@ class SpeakerTestApp:
         dev_frame.pack(fill="x", **pad)
 
         self.path_mode = tk.StringVar(value="bt")
-        ttk.Radiobutton(dev_frame, text="蓝牙内置扬声器（HID + SBC，真正的喇叭）",
+        ttk.Radiobutton(dev_frame, text="手柄内置扬声器（HID + SBC：蓝牙 或 官方USB无线适配器）",
                         variable=self.path_mode, value="bt",
                         command=self._update_path_mode).grid(row=0, column=0, columnspan=2,
                                                              sticky="w", padx=6, pady=(4, 0))
-        ttk.Radiobutton(dev_frame, text="Windows 音频端点（3.5mm 耳机口 / 蓝牙耳机端点）",
+        ttk.Radiobutton(dev_frame, text="Windows 音频端点（USB数据线/蓝牙 的 3.5mm 耳机口）",
                         variable=self.path_mode, value="endpoint",
                         command=self._update_path_mode).grid(row=0, column=2, columnspan=2,
                                                              sticky="w", padx=6, pady=(4, 0))
@@ -193,6 +194,7 @@ class SpeakerTestApp:
         self.stop_btn = ttk.Button(ctrl_frame, text="■ 停止", command=self.stop_play)
         self.stop_btn.pack(side="left", padx=4)
         ttk.Button(ctrl_frame, text="♪ 完整测试序列", command=self.play_full_sequence).pack(side="left", padx=4)
+        ttk.Button(ctrl_frame, text="☀ 灯条/震动自检", command=self._channel_check).pack(side="left", padx=4)
         self.status_var = tk.StringVar(value="就绪")
         ttk.Label(ctrl_frame, textvariable=self.status_var, foreground="#036").pack(side="left", padx=16)
 
@@ -243,31 +245,67 @@ class SpeakerTestApp:
 
     def _update_path_mode(self) -> None:
         bt = self.is_bt_mode()
-        state = "disabled" if bt else "readonly"
-        self.dev_combo.configure(state=state)
+        self.dev_combo.configure(state="disabled" if bt else "readonly")
         self.exclusive_var.set(False)
-        if bt:
-            self.refresh_bt_device()
-        else:
-            self.bt_info_var.set("")
+        self.refresh_bt_device()          # 两种通路都刷新手柄状态提示
+        if not bt:
             self._on_device_changed()
-        self.log_line("输出通路：%s" % ("蓝牙内置扬声器（HID + SBC）" if bt else "Windows 音频端点"))
+        self.log_line("输出通路：%s" % ("手柄内置扬声器（HID + SBC）" if bt else "Windows 音频端点（耳机口）"))
 
     def refresh_bt_device(self) -> None:
+        """刷新手柄 HID 状态，并在"能不能驱动扬声器"这一点上自动选好通路。"""
         try:
             self.bt_devices = find_ds4_hid_devices()
         except Exception as exc:  # noqa: BLE001
             self.bt_devices = []
             self.bt_info_var.set("无法枚举手柄 HID：%s" % exc)
             return
-        dev = pick_bt_device(self.bt_devices, require_bt=True)
-        if dev is None:
-            if self.bt_devices:
-                self.bt_info_var.set("手柄是 USB 连接 —— 内置扬声器必须用蓝牙（拔掉 USB 线重新配对）")
-            else:
-                self.bt_info_var.set("没有找到 PlayStation 手柄 HID 接口")
-        else:
+        dev = pick_speaker_device(self.bt_devices)
+        if dev is not None:
             self.bt_info_var.set("已找到：%s" % dev.label)
+            return
+        if self.bt_devices:
+            d0 = self.bt_devices[0]
+            self.bt_info_var.set(
+                "手柄：%s —— 没有音频报告，内置扬声器不可用；插耳机可测 3.5mm 耳机口"
+                % d0.transport_text)
+            # 自动切到"Windows 音频端点（有线）"通路，避免用户点了没反应
+            if self.path_mode.get() == "bt":
+                self.path_mode.set("endpoint")
+                self._update_path_mode()
+                self.log_line("检测到 USB 数据线连接：已自动切到「Windows 音频端点」通路。")
+                self.log_line("内置扬声器在数据线连接下物理上无法驱动；"
+                              "想测扬声器请用蓝牙直连或索尼官方 USB 无线适配器 CUH-ZWA1。")
+                self.log_line("当前通路可测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。")
+        else:
+            self.bt_info_var.set("没有找到 PlayStation 手柄 HID 接口")
+
+    def _channel_check(self) -> None:
+        """灯条/震动自检：蓝牙用 0x11 报告，USB 数据线用 0x05 报告。"""
+        self.refresh_bt_device()
+        dev = pick_speaker_device(self.bt_devices)
+        try:
+            if dev is not None:
+                sp = Ds4BtSpeaker(dev, output_mode=self.bt_output_mode())
+                sp.open()
+                try:
+                    sp.send_control_report((0, 60))
+                    self.log_line("已通过 %s 通路发送 0x11 报告：灯条应变绿、手柄震一下。" % sp.describe())
+                    time.sleep(0.4)
+                    sp.send_control_report((0, 0))
+                finally:
+                    sp.close()
+                return
+            usb_dev = next((d for d in self.bt_devices
+                            if USB_REPORT_ID in d.output_report_ids), None)
+            if usb_dev is None:
+                messagebox.showwarning(APP_TITLE, "没有找到可用于自检的手柄 HID 接口。")
+                return
+            usb_channel_check(usb_dev, (0, 255, 0), 200, hold=1.5)
+            self.log_line("已通过 USB 0x05 报告发送：灯条应变绿、手柄震一下"
+                          "（该通路没有音频数据）。")
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror(APP_TITLE, "灯条/震动自检失败：%s" % exc)
 
     def bt_output_mode(self) -> int:
         text = self.bt_out_var.get().strip()
@@ -320,10 +358,15 @@ class SpeakerTestApp:
                 max(0, num(self.ctrl_every_var, 20, int)))
 
     def _new_bt_speaker(self):
-        dev = pick_bt_device(self.bt_devices, require_bt=True)
+        dev = pick_speaker_device(self.bt_devices)
         if dev is None:
-            raise RuntimeError("没有蓝牙连接的手柄 —— 内置扬声器只能通过蓝牙驱动。\n"
-                               "请拔掉 USB 线，长按 Share + PS 键配对后再试。")
+            raise RuntimeError(
+                "当前手柄接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。\n\n"
+                "能驱动内置扬声器的两种连接方式：\n"
+                "  ① 蓝牙直连：拔掉 USB 线，长按手柄 Share + PS 键配对电脑；\n"
+                "  ② 索尼官方 USB 无线适配器 CUH-ZWA1：配对后插在 USB 口上。\n\n"
+                "只有 USB 数据线时，请用「Windows 音频端点」通路测 3.5mm 耳机口"
+                "（插耳机），或点「灯条/震动自检」确认链路。")
         lead, speed, ctrl_every = self._bt_tuning()
         return Ds4BtSpeaker(dev, output_mode=self.bt_output_mode(),
                             frames_per_report=4, lead_reports=lead, speed=speed,
