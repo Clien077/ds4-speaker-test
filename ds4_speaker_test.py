@@ -36,10 +36,11 @@ from dst_player import Player, Recorder  # noqa: E402
 from dst_ds4_bt import (  # noqa: E402
     AUDIO_BYTE2, AUDIO_REPORT_ID_2, AUDIO_REPORT_ID_4, AUDIO_REPORT_SIZE_2,
     AUDIO_REPORT_SIZE_4, OUTPUT_DEFAULT, SBC_DEFAULT_BITRATE, SBC_FRAME_LENGTH_PS4,
-    SBC_FRAMES_PER_SECOND, Ds4BtSpeaker, bitpool_for_frame_length, bitrate_for_bitpool,
-    build_control_report, build_raw_audio_report, crc32_bt, crc32_bt_reference,
-    decode_sbc_frames, encode_sbc_file, encode_sbc_pcm, find_ds4_hid_devices,
-    format_hid_list, parse_sbc_params, pick_bt_device, split_sbc_frames,
+    SBC_FRAMES_PER_SECOND, USB_REPORT_ID, Ds4BtSpeaker, bitpool_for_frame_length,
+    bitrate_for_bitpool, build_control_report, build_raw_audio_report, build_usb_control_report,
+    crc32_bt, crc32_bt_reference, decode_sbc_frames, encode_sbc_file, encode_sbc_pcm,
+    find_ds4_hid_devices, format_hid_list, parse_sbc_params,
+    pick_speaker_device, split_sbc_frames, usb_channel_check,
 )
 
 EXIT_OK = 0
@@ -184,6 +185,95 @@ def cmd_list(_args) -> int:
     print("")
     print("提示：手柄可能同时提供多个端点（USB / 蓝牙 A2DP / 蓝牙 HFP），")
     print("      若某个端点没有声音，换另一个 'Wireless Controller' 端点再试。")
+    print("")
+    print("注意：这些音频端点只对应手柄的 **3.5mm 耳机口**；")
+    print("      内置扬声器要走 HID + SBC 通路（--bt），且必须蓝牙直连或官方 USB 无线适配器，")
+    print("      只插 USB 数据线时物理上无法驱动（用 --wired 可查看诊断）。")
+    return EXIT_OK
+
+
+def cmd_wired(args) -> int:
+    """有线（USB 数据线）模式：先讲清能做什么，再自动测 3.5mm 耳机口 + 灯条/震动。"""
+    devices = find_ds4_hid_devices()
+    speaker_dev = pick_speaker_device(devices)
+    print("================ 有线（USB）模式诊断 ================")
+    print(format_hid_list(devices))
+    print("")
+    if speaker_dev is not None:
+        print("★ 当前接口【可以】驱动内置扬声器：%s" % speaker_dev.label)
+        print("  直接跑：python ds4_speaker_test.py --bt --signal sweep")
+    else:
+        print("内置扬声器：当前连接下【不可用】（原因见上）。")
+        print("  · 插 USB 数据线时，手柄固件不提供扬声器音频通路（HID 最大输出报告仅 32 字节，")
+        print("    实测写 0x14/0x17 返回 err=87），这不是软件能绕过的。")
+        print("  · 想测扬声器：① 蓝牙直连（拔线 + Share/PS 配对）② 索尼官方 USB 无线适配器 CUH-ZWA1。")
+    print("")
+    print("下面做两件当前连接下确实能做的事：")
+    print("  1) 灯条/震动自检（USB 0x05 报告）—— 验证 HID 通道");
+    print("  2) 3.5mm 耳机口音频输出测试（请先插上耳机）")
+    print("====================================================")
+
+    usb_dev = next((d for d in devices if USB_REPORT_ID in d.output_report_ids), None)
+    if usb_dev is not None and not args.no_wired_led:
+        print("")
+        print("发送 0x05 报告：灯条将变绿并震动一下……")
+        try:
+            usb_channel_check(usb_dev, (0, 255, 0), 200, hold=1.5)
+            print("已发送。若灯条没变色/没震动，说明手柄被其它程序独占或数据线接触不良。")
+        except OSError as exc:
+            print("发送失败：%s" % exc)
+    elif usb_dev is None:
+        print("")
+        print("（没有 0x05 报告接口，跳过灯条/震动自检）")
+
+    outs = [d for d in list_devices("output")
+            if d.max_output_channels > 0 and d.is_ds4]
+    if not outs:
+        print("")
+        print("没找到手柄的音频输出端点（3.5mm 耳机口）：")
+        print("  · USB 数据线连接时它应该叫「耳机 (N- Wireless Controller)」，请确认数据线已插好；")
+        print("  · 蓝牙只配了 HID 设备时不会有这个端点（蓝牙音频需要 A2DP/HFP 配对）。")
+        return EXIT_WARN
+    print("")
+    print("找到手柄音频端点（3.5mm 耳机口）：")
+    for d in outs:
+        print("   " + d.label)
+    target = outs[0]
+    print("")
+    print("→ 请把耳机插到手柄 3.5mm 口上，测试音将送到：%s" % target.name)
+    args.device = str(target.index)
+    if args.loopback_test:
+        return cmd_loopback(args)
+    return cmd_play(args)
+
+
+def cmd_wired_control_test(args) -> int:
+    """有线模式下的灯条/震动自检（USB 0x05 报告）。"""
+    devices = find_ds4_hid_devices()
+    dev = next((d for d in devices if USB_REPORT_ID in d.output_report_ids), None)
+    if dev is None:
+        print(format_hid_list(devices))
+        print("错误：没有找到暴露 0x05 输出报告的手柄接口（USB 数据线连接时才有）。", file=sys.stderr)
+        return EXIT_FAIL
+    try:
+        color = tuple(int(x) for x in args.bt_color.split(","))
+        if len(color) != 3:
+            raise ValueError
+    except ValueError:
+        print("错误：--bt-color 需要形如 0,255,0 的三个数值", file=sys.stderr)
+        return EXIT_FAIL
+    rumble = max(0, min(255, int(args.bt_rumble)))
+    print("手柄接口：%s" % dev.label)
+    print("通过 USB 0x05 报告发送：灯条 → RGB%s，马达 → %d/255" % (color, rumble))
+    try:
+        usb_channel_check(dev, color, rumble, hold=2.5)
+    except OSError as exc:
+        print("写入手柄失败：%s" % exc, file=sys.stderr)
+        print("提示：确认数据线已插好；若 DS4Windows 正在运行请先退出。", file=sys.stderr)
+        return EXIT_FAIL
+    print("")
+    print("请确认：① 灯条变成 RGB%s ② 手柄震动过。" % (color,))
+    print("注意：这条通路只能点灯/震动，**没有**音频数据——USB 数据线无法驱动内置扬声器。")
     return EXIT_OK
 
 
@@ -340,8 +430,12 @@ def cmd_loopback(args) -> int:
 def cmd_bt_list(_args) -> int:
     print(format_hid_list())
     print("")
-    print("说明：DS4 的**内置喇叭**不在 Windows 音频设备列表里，必须走蓝牙 HID/SBC 通路；")
-    print("      如果上面显示的是 USB，请拔掉 USB 线并用 Share+PS 键把手柄配到电脑蓝牙。")
+    print("说明：DS4 的**内置扬声器**不在 Windows 音频设备列表里，要走 HID + SBC 音频报告通路。")
+    print("      能不能走，只看手柄 HID 接口有没有暴露音频报告（0x14/0x17）：")
+    print("        · 蓝牙直连                                  → 可以")
+    print("        · 索尼官方 USB 无线适配器 CUH-ZWA1（插 USB） → 可以（这也算“有线”）")
+    print("        · USB 数据线直连                            → 不可以（描述符最大输出报告仅 32 字节）")
+    print("      只有数据线时用 --wired：测 3.5mm 耳机口 + 灯条/震动自检。")
     return EXIT_OK
 
 
@@ -370,7 +464,7 @@ def _bt_source(args, bitrate: int):
 def cmd_bt_loopback(args) -> int:
     """蓝牙推流 + 电脑麦克风回采，客观判断内置扬声器是否真的出声。"""
     devices = find_ds4_hid_devices()
-    dev = pick_bt_device(devices, require_bt=True)
+    dev = pick_speaker_device(devices)
     if dev is None:
         print(format_hid_list(devices))
         print("错误：需要蓝牙连接的手柄。", file=sys.stderr)
@@ -449,7 +543,7 @@ def cmd_bt_loopback(args) -> int:
 def cmd_bt_control_test(args) -> int:
     """用灯条 + 震动验证 HID 通路（肉眼/手感可确认，不依赖听）。"""
     devices = find_ds4_hid_devices()
-    dev = pick_bt_device(devices, require_bt=True)
+    dev = pick_speaker_device(devices)
     if dev is None:
         print(format_hid_list(devices))
         print("错误：需要蓝牙连接的手柄。", file=sys.stderr)
@@ -496,14 +590,16 @@ def cmd_bt_control_test(args) -> int:
 
 def cmd_bt_play(args) -> int:
     devices = find_ds4_hid_devices()
-    dev = pick_bt_device(devices, require_bt=True)
+    dev = pick_speaker_device(devices)
     if dev is None:
         print(format_hid_list(devices))
         print("")
         if devices:
-            print("错误：找到手柄，但它是 USB 连接。内置扬声器只能通过蓝牙驱动：", file=sys.stderr)
-            print("      拔掉 USB 线 → 手柄长按 Share + PS 键进入配对 → 在 Windows 蓝牙里添加“Wireless Controller”。",
-                  file=sys.stderr)
+            print("错误：当前手柄接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。", file=sys.stderr)
+            print("      能驱动内置扬声器的两种连接方式：", file=sys.stderr)
+            print("        ① 蓝牙直连：拔掉 USB 线，长按手柄 Share + PS 键配对电脑；", file=sys.stderr)
+            print("        ② 索尼官方 USB 无线适配器 CUH-ZWA1：配对后插在 USB 口上。", file=sys.stderr)
+            print("      只有 USB 数据线时，可先用 --wired 测 3.5mm 耳机口与灯条/震动。", file=sys.stderr)
         else:
             print("错误：没有找到 PlayStation 手柄的 HID 接口。", file=sys.stderr)
         return EXIT_FAIL
@@ -691,16 +787,18 @@ def cmd_bt_selftest(_args) -> int:
     for d in devices:
         print("    %s" % d.label)
         print("      %s" % d.path)
-    bt_dev = pick_bt_device(devices, require_bt=True)
-    usb_dev = pick_bt_device(devices, require_bt=False)
-    if usb_dev is None:
+    speaker_dev = pick_speaker_device(devices)
+    usb_dev = next((d for d in devices if USB_REPORT_ID in d.output_report_ids), None)
+    if not devices:
         print("  [跳过] 当前没有连接手柄")
-    elif bt_dev is None:
-        print("  [注意] 手柄现在是 USB 连接 —— 内置扬声器需要蓝牙（拔掉 USB 线重新配对）")
+    elif speaker_dev is None:
+        print("  [注意] 当前接口没暴露音频报告（USB 数据线直连）—— 内置扬声器需要蓝牙直连或官方 USB 无线适配器")
+        if usb_dev is not None:
+            check("有线模式下有 0x05 报告可用（灯条/震动）", True, usb_dev.label)
     else:
-        check("找到蓝牙手柄接口", True, bt_dev.label)
+        check("找到可驱动内置扬声器的手柄接口", True, speaker_dev.label)
         try:
-            speaker = Ds4BtSpeaker(bt_dev)
+            speaker = Ds4BtSpeaker(speaker_dev)
             check("可构造推流器（未实际发送）", True, speaker.describe())
         except Exception as exc:  # noqa: BLE001
             check("可构造推流器（未实际发送）", False, str(exc))
@@ -923,6 +1021,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--bt-volume", type=int, default=255,
                    help="手柄内置扬声器音量 0-255（默认 255 = 100%%）")
 
+    # --- 有线（USB 数据线）模式 ---
+    p.add_argument("--wired", action="store_true",
+                   help="有线（USB 数据线）模式：诊断能否驱动扬声器 + 灯条/震动自检 + 自动测 3.5mm 耳机口")
+    p.add_argument("--wired-control-test", action="store_true",
+                   help="有线模式的灯条/震动自检（USB 0x05 报告）")
+    p.add_argument("--no-wired-led", action="store_true", help="--wired 时跳过灯条/震动自检")
+
     p.add_argument("--device", "-d", default=None,
                    help="输出设备：序号或名称子串，默认自动识别手柄扬声器")
     p.add_argument("--input-device", default=None,
@@ -954,6 +1059,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.list:
         return cmd_list(args)
+    if args.wired_control_test:
+        return cmd_wired_control_test(args)
+    if args.wired:
+        return cmd_wired(args)
     if args.bt_list:
         return cmd_bt_list(args)
     if args.bt_selftest:
