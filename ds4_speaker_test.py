@@ -399,7 +399,7 @@ def cmd_loopback(args) -> int:
     print("频谱相似度 %.2f，包络相关 %s，估计延迟 %s"
           % (result["spec_sim"],
              "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
-             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
+             t("%.3f 秒") % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
     if result["ref_dom_hz"] and result["rec_dom_hz"]:
         print("主频：参考 %.0f Hz / 录回 %.0f Hz" % (result["ref_dom_hz"], result["rec_dom_hz"]))
     print("判定：%s —— %s" % (result["verdict"].upper(), result["verdict_text"]))
@@ -462,7 +462,7 @@ def _bt_source(args, bitrate: int):
         frames, params = encode_sbc_pcm(
             data, bitrate=bitrate, gain_db=args.volume_db, channel=args.channel,
         )
-        desc = "内置信号 %s（%.1f 秒）" % (text, len(frames) / SBC_FRAMES_PER_SECOND)
+        desc = t("内置信号 %s（%.1f 秒）") % (text, len(frames) / SBC_FRAMES_PER_SECOND)
     return frames, params, desc
 
 
@@ -527,7 +527,7 @@ def cmd_bt_loopback(args) -> int:
     print("频谱相似度 %.2f，包络相关 %s，估计延迟 %s"
           % (result["spec_sim"],
              "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
-             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
+             t("%.3f 秒") % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
     print("判定：%s —— %s" % (result["verdict"].upper(), result["verdict_text"]))
     print("===============================================")
     if args.save_rec:
@@ -680,9 +680,9 @@ def cmd_bt_play(args) -> int:
         print("循环次数：%d" % rounds)
     if result.late_reports > 5:
         print("提示：有 %d 条报告迟到（最长 %.1f ms），若听到卡顿可试 --bt-lead 12 加大预灌缓冲，"
-              "或 --bt-speed 1.02。" % (result.late_reports, result.max_late_ms))
+              + "或 --bt-speed 1.02。" % (result.late_reports, result.max_late_ms))
     print("如果你没听到声音：确认通路字节（--bt-path 0x02=内置扬声器 / 0x24=耳机口）、"
-          "手柄音量（--bt-volume），以及没有其它程序占用 HID。")
+          + "手柄音量（--bt-volume），以及没有其它程序占用 HID。")
     return EXIT_OK
 
 
@@ -731,7 +731,7 @@ def cmd_bt_selftest(_args) -> int:
     dom = float(freqs[int(np.argmax(np.abs(np.fft.rfft(back[:, 0]))))])
     peak = float(np.max(np.abs(back)))
     check("回解时长 1.000 秒", abs(back.shape[0] / 32000.0 - 1.0) < 0.01,
-          "%.3f 秒" % (back.shape[0] / 32000.0))
+          t("%.3f 秒") % (back.shape[0] / 32000.0))
     check("回解主频 1000 Hz", abs(dom - 1000.0) < 20.0, "%.0f Hz" % dom)
     check("回解电平正常", abs(20 * np.log10(max(peak, 1e-9)) + 6.0) < 1.5,
           "峰值 %.1f dBFS（输入 -6 dBFS）" % (20 * np.log10(max(peak, 1e-9))))
