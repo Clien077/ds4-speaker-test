@@ -42,10 +42,15 @@ from dst_ds4_bt import (  # noqa: E402
     find_ds4_hid_devices, format_hid_list, parse_sbc_params,
     pick_speaker_device, split_sbc_frames, usb_channel_check,
 )
+from dst_i18n import LANG_NAMES, current_lang, set_lang, t  # noqa: E402
+from dst_i18n import LANG_NAMES, current_lang, set_lang, t  # noqa: E402
 
 EXIT_OK = 0
 EXIT_WARN = 1
 EXIT_FAIL = 2
+
+APP_NAME = "DS4 Speaker Test"
+__version__ = "1.1.0"
 
 DEFAULT_AMPLITUDE = 0.25  # -12 dBFS（走 Windows 音频端点时用）
 #: 走蓝牙内置喇叭时默认给满一点：DS4 的小喇叭本身音量很小（-1 dBFS）
@@ -101,7 +106,7 @@ def resolve_output(spec: Optional[str], verbose: bool = True) -> AudioDevice:
     if dev is None:
         raise SystemExit("找不到任何音频输出设备")
     if verbose:
-        tag = "（已自动识别为手柄扬声器）" if dev.is_ds4 else "（未识别到手柄端点，使用默认输出）"
+        tag = t("（已自动识别为手柄扬声器）") if dev.is_ds4 else t("（未识别到手柄端点，使用默认输出）")
         print("输出设备：%s %s" % (dev.label, tag))
     return dev
 
@@ -119,8 +124,8 @@ def resolve_input(spec: Optional[str], peer: Optional[AudioDevice], verbose: boo
     if dev is None:
         raise SystemExit("找不到任何音频输入设备")
     if verbose:
-        tag = ("（手柄耳机口耳麦 —— DS4 没有内置麦克风，需插带麦耳机）" if dev.is_ds4
-               else "（用电脑麦克风对着手柄录音即可）")
+        tag = (t("（手柄耳机口耳麦 —— DS4 没有内置麦克风，需插带麦耳机）") if dev.is_ds4
+               else t("（用电脑麦克风对着手柄录音即可）"))
         print("录音设备：%s %s" % (dev.label, tag))
     return dev
 
@@ -393,8 +398,8 @@ def cmd_loopback(args) -> int:
           % (result["rec_peak_db"], result["rec_rms_db"]))
     print("频谱相似度 %.2f，包络相关 %s，估计延迟 %s"
           % (result["spec_sim"],
-             "%.2f" % result["env_corr"] if result["env_corr"] is not None else "不适用",
-             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else "不适用"))
+             "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
+             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
     if result["ref_dom_hz"] and result["rec_dom_hz"]:
         print("主频：参考 %.0f Hz / 录回 %.0f Hz" % (result["ref_dom_hz"], result["rec_dom_hz"]))
     print("判定：%s —— %s" % (result["verdict"].upper(), result["verdict_text"]))
@@ -430,12 +435,12 @@ def cmd_loopback(args) -> int:
 def cmd_bt_list(_args) -> int:
     print(format_hid_list())
     print("")
-    print("说明：DS4 的**内置扬声器**不在 Windows 音频设备列表里，要走 HID + SBC 音频报告通路。")
-    print("      能不能走，只看手柄 HID 接口有没有暴露音频报告（0x14/0x17）：")
-    print("        · 蓝牙直连                                  → 可以")
-    print("        · 索尼官方 USB 无线适配器 CUH-ZWA1（插 USB） → 可以（这也算“有线”）")
-    print("        · USB 数据线直连                            → 不可以（描述符最大输出报告仅 32 字节）")
-    print("      只有数据线时用 --wired：测 3.5mm 耳机口 + 灯条/震动自检。")
+    print(t("说明：DS4 的**内置扬声器**不在 Windows 音频设备列表里，要走 HID + SBC 音频报告通路。"))
+    print(t("      能不能走，只看手柄 HID 接口有没有暴露音频报告（0x14/0x17）："))
+    print(t("        · 蓝牙直连                                  → 可以"))
+    print(t("        · 索尼官方 USB 无线适配器 CUH-ZWA1（插 USB） → 可以（这也算“有线”）"))
+    print(t("        · USB 数据线直连                            → 不可以（描述符最大输出报告仅 32 字节）"))
+    print(t("      只有数据线时用 --wired：测 3.5mm 耳机口 + 灯条/震动自检。"))
     return EXIT_OK
 
 
@@ -521,8 +526,8 @@ def cmd_bt_loopback(args) -> int:
               % (result["floor_db"], result["snr_db"]))
     print("频谱相似度 %.2f，包络相关 %s，估计延迟 %s"
           % (result["spec_sim"],
-             "%.2f" % result["env_corr"] if result["env_corr"] is not None else "不适用",
-             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else "不适用"))
+             "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
+             "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用")))
     print("判定：%s —— %s" % (result["verdict"].upper(), result["verdict_text"]))
     print("===============================================")
     if args.save_rec:
@@ -691,7 +696,7 @@ def cmd_bt_selftest(_args) -> int:
     def check(name: str, ok: bool, detail: str = "") -> None:
         nonlocal checks
         checks += 1
-        print("  [%s] %s%s" % ("通过" if ok else "失败", name, (" —— " + detail) if detail else ""))
+        print("  [%s] %s%s" % (t("通过") if ok else t("失败"), name, (" —— " + detail) if detail else ""))
         if not ok:
             failures.append(name)
 
@@ -822,7 +827,7 @@ def cmd_selftest(args) -> int:
     def check(name: str, ok: bool, detail: str = "") -> None:
         nonlocal checks
         checks += 1
-        print("  [%s] %s%s" % ("通过" if ok else "失败", name, (" —— " + detail) if detail else ""))
+        print("  [%s] %s%s" % (t("通过") if ok else t("失败"), name, (" —— " + detail) if detail else ""))
         if not ok:
             failures.append(name)
 
@@ -852,7 +857,7 @@ def cmd_selftest(args) -> int:
         check("信号 %s (%s)" % (key, desc), ok,
               "峰值 %.3f，%d 帧" % (float(np.max(np.abs(sig))) if sig.size else 0.0, sig.shape[0]))
     all_sig, marks = build_signal("all", samplerate=48000, channels=2)
-    check("完整测试序列", all_sig.shape[0] > 48000 and len(marks) >= 5,
+    check(t("完整测试序列"), all_sig.shape[0] > 48000 and len(marks) >= 5,
           "%.1f 秒，%d 个项目" % (all_sig.shape[0] / 48000.0, len(marks)))
 
     print("== 3. WAV 读写往返 ==")
@@ -980,81 +985,94 @@ def cmd_gui(_args) -> int:
 # --------------------------------------------------------------------------- #
 
 def build_parser() -> argparse.ArgumentParser:
-    signal_help = "内置测试信号：" + "，".join("%s=%s" % (k, v[0]) for k, v in SIGNAL_INFO.items())
+    signal_help = t("内置测试信号：") + "，" .join("%s=%s" % (k, v[0]) for k, v in SIGNAL_INFO.items())
     p = argparse.ArgumentParser(
         prog="ds4_speaker_test",
-        description="DS4 / DualSense 手柄扬声器测试工具（支持自定义测试音频）",
+        description=t("DS4 / DualSense 手柄扬声器测试工具（支持自定义测试音频）"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("--list", "-l", action="store_true", help="列出所有音频设备后退出")
-    p.add_argument("--gui", action="store_true", help="打开图形界面（默认行为）")
-    p.add_argument("--selftest", action="store_true", help="运行离线自检（默认不发声）")
-    p.add_argument("--with-audio", action="store_true", help="自检时额外做一次静音播放预检")
+    p.add_argument("--lang", choices=["zh", "en"], default=None,
+                   help=t("界面语言：zh=简体中文，en=English（默认跟随系统）"))
+    p.add_argument("--version", "-V", action="version",
+                   version="%s %s" % (APP_NAME, __version__),
+                   help=t("显示版本号并退出"))
+    p.add_argument("--list", "-l", action="store_true", help=t("列出所有音频设备后退出"))
+    p.add_argument("--gui", action="store_true", help=t("打开图形界面（默认行为）"))
+    p.add_argument("--selftest", action="store_true", help=t("运行离线自检（默认不发声）"))
+    p.add_argument("--with-audio", action="store_true", help=t("自检时额外做一次静音播放预检"))
     p.add_argument("--loopback-test", action="store_true",
-                   help="回环自检：播放测试音频并用（手柄）麦克风录音，自动判定扬声器是否正常")
+                   help=t("回环自检：播放测试音频并用（手柄）麦克风录音，自动判定扬声器是否正常"))
 
     # --- 蓝牙内置扬声器（HID + SBC）---
     p.add_argument("--bt", action="store_true",
-                   help="走蓝牙 HID/SBC 通路，直接驱动手柄**内置扬声器**（需蓝牙连接）")
-    p.add_argument("--bt-list", action="store_true", help="列出手柄 HID 接口及其连接方式（蓝牙/USB）")
-    p.add_argument("--bt-selftest", action="store_true", help="蓝牙通路离线自检（不向手柄发送数据）")
+                   help=t("走蓝牙 HID/SBC 通路，直接驱动手柄**内置扬声器**（需蓝牙连接）"))
+    p.add_argument("--bt-list", action="store_true", help=t("列出手柄 HID 接口及其连接方式（蓝牙/USB）"))
+    p.add_argument("--bt-selftest", action="store_true", help=t("蓝牙通路离线自检（不向手柄发送数据）"))
     p.add_argument("--bt-path", type=lambda s: int(str(s), 0), default=OUTPUT_DEFAULT,
                    help="音频报告的输出通路字节：0x%02X=内置扬声器（默认），0x24=3.5mm 耳机孔"
                         % OUTPUT_DEFAULT)
     p.add_argument("--bt-bitrate", type=int, default=SBC_DEFAULT_BITRATE,
-                   help="SBC 比特率；0（默认）= 跟随参考实现用 ffmpeg 默认参数")
+                   help=t("SBC 比特率；0（默认）= 跟随参考实现用 ffmpeg 默认参数"))
     p.add_argument("--bt-frames", type=int, choices=[2, 4], default=4,
-                   help="每条报告的 SBC 帧数（默认 4 = 0x17/462 字节，不足时自动用 0x14/270）")
-    p.add_argument("--bt-exclusive", action="store_true", help="以独占方式打开手柄 HID")
+                   help=t("每条报告的 SBC 帧数（默认 4 = 0x17/462 字节，不足时自动用 0x14/270）"))
+    p.add_argument("--bt-exclusive", action="store_true", help=t("以独占方式打开手柄 HID"))
     p.add_argument("--bt-lead", type=int, default=6,
-                   help="开播前先连发几条报告把手柄缓冲垫起来，抗抖动（默认 6，0=关闭）")
+                   help=t("开播前先连发几条报告把手柄缓冲垫起来，抗抖动（默认 6，0=关闭）"))
     p.add_argument("--bt-speed", type=float, default=1.0,
-                   help="送流速率倍数（默认 1.0=严格实时；仍断续可试 1.02 慢慢垫厚缓冲）")
+                   help=t("送流速率倍数（默认 1.0=严格实时；仍断续可试 1.02 慢慢垫厚缓冲）"))
     p.add_argument("--bt-control-every", type=int, default=20,
-                   help="每 N 条音频报告插一条 0x11 刷新控制状态（默认 20，0=关闭）")
-    p.add_argument("--bt-dry-run", action="store_true", help="只生成报告不写设备（用于检查参数）")
+                   help=t("每 N 条音频报告插一条 0x11 刷新控制状态（默认 20，0=关闭）"))
+    p.add_argument("--bt-dry-run", action="store_true", help=t("只生成报告不写设备（用于检查参数）"))
     p.add_argument("--bt-control-test", action="store_true",
-                   help="用手柄灯条+震动验证 HID 通路是否打通（不依赖听）")
-    p.add_argument("--bt-color", default="0,255,0", help="控制测试用的灯条颜色 R,G,B（默认 0,255,0）")
-    p.add_argument("--bt-rumble", type=int, default=200, help="控制测试用的马达强度 0-255（默认 200）")
+                   help=t("用手柄灯条+震动验证 HID 通路是否打通（不依赖听）"))
+    p.add_argument("--bt-color", default="0,255,0", help=t("控制测试用的灯条颜色 R,G,B（默认 0,255,0）"))
+    p.add_argument("--bt-rumble", type=int, default=200, help=t("控制测试用的马达强度 0-255（默认 200）"))
     p.add_argument("--bt-volume", type=int, default=255,
-                   help="手柄内置扬声器音量 0-255（默认 255 = 100%%）")
+                   help=t("手柄内置扬声器音量 0-255（默认 255 = 100%%）"))
 
     # --- 有线（USB 数据线）模式 ---
     p.add_argument("--wired", action="store_true",
-                   help="有线（USB 数据线）模式：诊断能否驱动扬声器 + 灯条/震动自检 + 自动测 3.5mm 耳机口")
+                   help=t("有线（USB 数据线）模式：诊断能否驱动扬声器 + 灯条/震动自检 + 自动测 3.5mm 耳机口"))
     p.add_argument("--wired-control-test", action="store_true",
-                   help="有线模式的灯条/震动自检（USB 0x05 报告）")
-    p.add_argument("--no-wired-led", action="store_true", help="--wired 时跳过灯条/震动自检")
+                   help=t("有线模式的灯条/震动自检（USB 0x05 报告）"))
+    p.add_argument("--no-wired-led", action="store_true", help=t("--wired 时跳过灯条/震动自检"))
 
     p.add_argument("--device", "-d", default=None,
-                   help="输出设备：序号或名称子串，默认自动识别手柄扬声器")
+                   help=t("输出设备：序号或名称子串，默认自动识别手柄扬声器"))
     p.add_argument("--input-device", default=None,
-                   help="回环测试的录音设备（默认电脑麦克风；插在手柄上的耳麦也可选）")
+                   help=t("回环测试的录音设备（默认电脑麦克风；插在手柄上的耳麦也可选）"))
     p.add_argument("--signal", "-s", default="tone", help=signal_help)
-    p.add_argument("--file", "-f", default=None, help="自定义测试音频文件（wav/mp3/flac/ogg/m4a...）")
-    p.add_argument("--start", type=float, default=0.0, help="自定义音频的起始位置（秒）")
-    p.add_argument("--duration", type=float, default=0.0, help="播放时长（秒，0=完整播放）")
-    p.add_argument("--freq", type=float, default=1000.0, help="单音频率（Hz）")
-    p.add_argument("--f0", type=float, default=20.0, help="扫频起始频率（Hz）")
-    p.add_argument("--f1", type=float, default=20000.0, help="扫频终止频率（Hz）")
+    p.add_argument("--file", "-f", default=None, help=t("自定义测试音频文件（wav/mp3/flac/ogg/m4a...）"))
+    p.add_argument("--start", type=float, default=0.0, help=t("自定义音频的起始位置（秒）"))
+    p.add_argument("--duration", type=float, default=0.0, help=t("播放时长（秒，0=完整播放）"))
+    p.add_argument("--freq", type=float, default=1000.0, help=t("单音频率（Hz）"))
+    p.add_argument("--f0", type=float, default=20.0, help=t("扫频起始频率（Hz）"))
+    p.add_argument("--f1", type=float, default=20000.0, help=t("扫频终止频率（Hz）"))
     p.add_argument("--channel", choices=["both", "left", "right"], default="both",
-                   help="声道路由（测试单侧耳机 / 手柄内置喇叭）")
-    p.add_argument("--volume-db", "-v", type=float, default=0.0, help="音量增益（dB，默认 0）")
-    p.add_argument("--loop", action="store_true", help="循环播放")
-    p.add_argument("--samplerate", type=int, default=0, help="播放采样率（0=设备默认）")
-    p.add_argument("--channels", type=int, default=0, help="播放声道数（0=自动）")
-    p.add_argument("--exclusive", action="store_true", help="使用 WASAPI 独占模式")
-    p.add_argument("--blocksize", type=int, default=0, help="音频块大小（0=自动）")
-    p.add_argument("--latency", type=float, default=None, help="期望延迟（秒）")
-    p.add_argument("--save-rec", default=None, help="把回环测试录到的音频保存为 WAV")
+                   help=t("声道路由（测试单侧耳机 / 手柄内置喇叭）"))
+    p.add_argument("--volume-db", "-v", type=float, default=0.0, help=t("音量增益（dB，默认 0）"))
+    p.add_argument("--loop", action="store_true", help=t("循环播放"))
+    p.add_argument("--samplerate", type=int, default=0, help=t("播放采样率（0=设备默认）"))
+    p.add_argument("--channels", type=int, default=0, help=t("播放声道数（0=自动）"))
+    p.add_argument("--exclusive", action="store_true", help=t("使用 WASAPI 独占模式"))
+    p.add_argument("--blocksize", type=int, default=0, help=t("音频块大小（0=自动）"))
+    p.add_argument("--latency", type=float, default=None, help=t("期望延迟（秒）"))
+    p.add_argument("--save-rec", default=None, help=t("把回环测试录到的音频保存为 WAV"))
     return p
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     _setup_console()
     raw = list(sys.argv[1:] if argv is None else argv)
+    # 语言要在建 parser 之前定好，否则 --help 的内容会是另一种语言
+    lang_arg = None
+    for i, item in enumerate(raw):
+        if item == "--lang" and i + 1 < len(raw):
+            lang_arg = raw[i + 1]
+        elif item.startswith("--lang="):
+            lang_arg = item.split("=", 1)[1]
+    set_lang(lang_arg)
     args = build_parser().parse_args(raw)
 
     if args.list:
