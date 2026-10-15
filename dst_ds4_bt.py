@@ -35,6 +35,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from dst_audio import AudioError, find_ffmpeg, to_db
+from dst_i18n import t
 
 # --------------------------------------------------------------------------- #
 # 常量
@@ -181,8 +182,8 @@ class Ds4HidDevice:
     @property
     def transport_text(self) -> str:
         if self.product_id == 0x0BA0:
-            return "USB 无线适配器"
-        return {"BT": "蓝牙直连", "USB": "USB 数据线直连", "?": "未知连接"}[self.transport]
+            return t("USB 无线适配器")
+        return {"BT": t("蓝牙直连"), "USB": t("USB 数据线直连"), "?": t("未知连接")}[self.transport]
 
     @property
     def is_bluetooth(self) -> bool:
@@ -209,8 +210,8 @@ class Ds4HidDevice:
 
     @property
     def label(self) -> str:
-        cap = "内置扬声器可用" if self.supports_speaker else "无音频报告（扬声器不可用）"
-        return "%s · %s · 输出报告 %s · %s" % (
+        cap = t("内置扬声器可用") if self.supports_speaker else t("无音频报告（扬声器不可用）")
+        return t("%s · %s · 输出报告 %s · %s") % (
             self.model, self.transport_text,
             ",".join("0x%02X" % r for r in self.output_report_ids) or "%d 字节" % self.output_report_length,
             cap)
@@ -753,18 +754,17 @@ class Ds4BtSpeaker:
     # ---------------------------------------------------------------- 设备
     def open(self) -> None:
         if not self.device.supports_speaker:
-            raise RuntimeError(
-                "这个手柄 HID 接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。\n"
-                "  当前连接：%s\n"
-                "  接口输出报告：%s（USB 数据线直连时最大只有 32 字节，装不下 270/462 字节的音频报告）\n"
-                "能驱动内置扬声器的两种连接方式：\n"
-                "  1) 蓝牙直连 —— 拔掉 USB 线，长按手柄 Share + PS 键配对电脑；\n"
-                "  2) 索尼官方 USB 无线适配器（CUH-ZWA1）—— 手柄与适配器配对后插在 USB 口上。\n"
-                "只有 USB 数据线时，可以测 3.5mm 耳机口：python ds4_speaker_test.py --wired"
-                % (self.device.transport_text,
-                   ",".join("0x%02X" % r for r in self.device.output_report_ids)
-                   or "未知")
-            )
+            reports = ",".join("0x%02X" % r for r in self.device.output_report_ids) or "?"
+            raise RuntimeError("\n".join([
+                t("这个手柄 HID 接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。"),
+                t("  当前连接：%s") % self.device.transport_text,
+                t("  接口输出报告：%s（USB 数据线直连时最大只有 32 字节，装不下 270/462 字节的音频报告）")
+                % reports,
+                t("能驱动内置扬声器的两种连接方式："),
+                t("  1) 蓝牙直连 —— 拔掉 USB 线，长按手柄 Share + PS 键配对电脑；"),
+                t("  2) 索尼官方 USB 无线适配器（CUH-ZWA1）—— 手柄与适配器配对后插在 USB 口上。"),
+                t("只有 USB 数据线时，可以测 3.5mm 耳机口：python ds4_speaker_test.py --wired"),
+            ]))
         self.writer.open()
 
     def close(self) -> None:
@@ -942,17 +942,17 @@ def usb_channel_check(
 def format_hid_list(devices: Optional[Sequence[Ds4HidDevice]] = None) -> str:
     devs = list(devices) if devices is not None else find_ds4_hid_devices()
     if not devs:
-        return "没有找到任何 PlayStation 手柄 HID 接口（请连接手柄后重试）。"
-    lines = ["找到 %d 个手柄 HID 接口：" % len(devs)]
+        return t("没有找到任何 PlayStation 手柄 HID 接口（请连接手柄后重试）。")
+    lines = [t("找到 %d 个手柄 HID 接口：") % len(devs)]
     for d in devs:
-        mark = "   ← 可驱动内置扬声器" if d.supports_speaker else "   ← 不能驱动内置扬声器"
+        mark = t("   ← 可驱动内置扬声器") if d.supports_speaker else t("   ← 不能驱动内置扬声器")
         lines.append("  " + d.label + mark)
         lines.append("      " + d.path)
     if not any(d.supports_speaker for d in devs):
         lines.append("")
-        lines.append("说明：USB 数据线直连时，手柄 HID 描述符里最大输出报告只有 32 字节、")
-        lines.append("      且只暴露 0x05（灯条/震动），装不下 270/462 字节的音频报告，")
-        lines.append("      所以内置扬声器在数据线连接下物理上无法驱动（实测写入返回 err=87）。")
-        lines.append("      要测内置扬声器：① 蓝牙直连；② 索尼官方 USB 无线适配器 CUH-ZWA1。")
-        lines.append("      只有数据线时可用 --wired 测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。")
+        lines.append(t("说明：USB 数据线直连时，手柄 HID 描述符里最大输出报告只有 32 字节、"))
+        lines.append(t("      且只暴露 0x05（灯条/震动），装不下 270/462 字节的音频报告，"))
+        lines.append(t("      所以内置扬声器在数据线连接下物理上无法驱动（实测写入返回 err=87）。"))
+        lines.append(t("      要测内置扬声器：① 蓝牙直连；② 索尼官方 USB 无线适配器 CUH-ZWA1。"))
+        lines.append(t("      只有数据线时可用 --wired 测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。"))
     return "\n".join(lines)
