@@ -237,7 +237,7 @@ def ffmpeg_decode(path: str, samplerate: int, channels: int) -> Tuple[np.ndarray
         raise AudioError("调用 ffmpeg 失败: %s" % exc) from exc
     if proc.returncode != 0 or not proc.stdout:
         err = (proc.stderr or b"").decode("utf-8", "replace").strip().splitlines()
-        tail = " | ".join(err[-3:]) if err else "未知错误"
+        tail = " | ".join(err[-3:]) if err else t("未知错误")
         raise AudioError("ffmpeg 解码失败 (%d): %s" % (proc.returncode, tail))
     samples, sr = parse_wav(proc.stdout)
     return samples, sr
@@ -541,16 +541,16 @@ def silence(duration: float = 1.0, samplerate: int = 48000, channels: int = 2) -
 
 #: 内置信号：名称 -> (中文说明, 默认时长秒)
 SIGNAL_INFO: Dict[str, Tuple[str, float]] = {
-    "tone": ("单音（默认 1 kHz，可调频率）", 3.0),
-    "sweep": ("对数扫频 20 Hz → 20 kHz（听杂音/破音）", 8.0),
-    "sweep_speech": ("语音频段扫频 200 Hz → 6 kHz（音量与清晰度）", 5.0),
-    "white": ("白噪声（全频段压力测试）", 5.0),
-    "pink": ("粉噪声（贴近音乐能量分布）", 5.0),
-    "channels": ("逐声道点名：左 → 右 → 全部", 5.0),
-    "polarity": ("同相 / 反相测试（低频相位）", 4.0),
-    "dtmf": ("双音多频 1-0（频响快速校验）", 6.0),
-    "silence": ("静音（链路预检 / 底噪）", 1.0),
-    "all": ("完整测试序列（自动依次播放全部项目）", 0.0),
+    "tone": (t("单音（默认 1 kHz，可调频率）"), 3.0),
+    "sweep": (t("对数扫频 20 Hz → 20 kHz（听杂音/破音）"), 8.0),
+    "sweep_speech": (t("语音频段扫频 200 Hz → 6 kHz（音量与清晰度）"), 5.0),
+    "white": (t("白噪声（全频段压力测试）"), 5.0),
+    "pink": (t("粉噪声（贴近音乐能量分布）"), 5.0),
+    "channels": (t("逐声道点名：左 → 右 → 全部"), 5.0),
+    "polarity": (t("同相 / 反相测试（低频相位）"), 4.0),
+    "dtmf": (t("双音多频 1-0（频响快速校验）"), 6.0),
+    "silence": (t("静音（链路预检 / 底噪）"), 1.0),
+    "all": (t("完整测试序列（自动依次播放全部项目）"), 0.0),
 }
 
 #: "all" 序列里的每一项
@@ -597,27 +597,27 @@ def build_signal(
     dur = float(duration) if duration else default_dur
     if key == "all":
         sig, _ = build_all_tests(samplerate, channels, amplitude, freq, f0, f1)
-        return sig, "完整测试序列（约 %.0f 秒）" % (sig.shape[0] / samplerate)
+        return sig, t("完整测试序列（约 %.0f 秒）") % (sig.shape[0] / samplerate)
     if key == "tone":
-        return tone(freq, dur or 3.0, samplerate, channels, amplitude), "单音 %.0f Hz" % freq
+        return tone(freq, dur or 3.0, samplerate, channels, amplitude), t("单音 %.0f Hz") % freq
     if key == "sweep":
         return sweep(f0, f1, dur or 8.0, samplerate, channels, amplitude), \
-            "对数扫频 %.0f Hz → %.0f Hz" % (f0, f1)
+            t("对数扫频 %.0f Hz → %.0f Hz") % (f0, f1)
     if key == "sweep_speech":
         return sweep(200.0, 6000.0, dur or 5.0, samplerate, channels, amplitude), \
-            "语音频段扫频 200 Hz → 6000 Hz"
+            t("语音频段扫频 200 Hz → 6000 Hz")
     if key == "white":
-        return noise(dur or 5.0, samplerate, channels, amplitude, "white", seed), "白噪声"
+        return noise(dur or 5.0, samplerate, channels, amplitude, "white", seed), t("白噪声")
     if key == "pink":
         return noise(dur or 5.0, samplerate, channels, amplitude, "pink", seed), "粉噪声"
     if key == "channels":
         return channel_test(samplerate, channels, amplitude, freq), "左右声道点名"
     if key == "polarity":
-        return polarity_test(samplerate, channels, amplitude), "同相 / 反相测试"
+        return polarity_test(samplerate, channels, amplitude), t("同相 / 反相测试")
     if key == "dtmf":
-        return dtmf_sequence(samplerate, channels, amplitude), "双音多频序列"
+        return dtmf_sequence(samplerate, channels, amplitude), t("双音多频序列")
     if key == "silence":
-        return silence(dur or 1.0, samplerate, channels), "静音"
+        return silence(dur or 1.0, samplerate, channels), t("静音")
     raise AudioError("未知的内置信号: %s（可选：%s）" % (name, ", ".join(SIGNAL_INFO)))
 
 
