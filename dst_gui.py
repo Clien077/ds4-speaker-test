@@ -23,11 +23,14 @@ from dst_ds4_bt import (
     usb_channel_check,
 )
 from dst_player import Player, Recorder
+from dst_i18n import LANG_NAMES, current_lang, save_lang, set_lang, t
+from dst_i18n import t
 
-APP_TITLE = "DS4 / DualSense 手柄扬声器测试工具"
+APP_VERSION = "1.1.0"
+APP_TITLE = t("DS4 / DualSense 手柄扬声器测试工具")
 FILE_TYPES = [
-    ("音频文件", "*.wav *.mp3 *.flac *.ogg *.oga *.opus *.m4a *.aac *.wma *.aif *.aiff"),
-    ("所有文件", "*.*"),
+    (t("音频文件"), "*.wav *.mp3 *.flac *.ogg *.oga *.opus *.m4a *.aac *.wma *.aif *.aiff"),
+    (t("所有文件"), "*.*"),
 ]
 SIGNAL_LABELS: List[str] = [
     "%s —— %s" % (key, SIGNAL_INFO[key][0]) for key in SIGNAL_INFO
@@ -66,30 +69,73 @@ class SpeakerTestApp:
         self.root.after(80, self._poll_meter)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
+    # ------------------------------------------------------------- 语言切换
+    def _on_lang_selected(self, _event=None) -> None:
+        """切换界面语言：保存偏好 + 就地重建界面（不丢日志）。"""
+        name = self.lang_var.get()
+        code = "en" if name == LANG_NAMES["en"] else "zh"
+        if code == current_lang():
+            return
+        save_lang(code)
+        set_lang(code)
+        self._rebuild_ui()
+        self.log_line(t("语言已保存，重启后生效").replace("，重启后生效", "（已即时生效）")
+                      if code == "zh" else "Language switched to English.")
+
+    def _rebuild_ui(self) -> None:
+        keep = ""
+        try:
+            keep = self.log.get("1.0", "end")
+        except Exception:  # noqa: BLE001
+            pass
+        for child in list(self.root.winfo_children()):
+            child.destroy()
+        self._build_ui()
+        try:
+            if keep.strip():
+                self.log.insert("1.0", keep)
+        except Exception:  # noqa: BLE001
+            pass
+        self.refresh_devices()
+        self._update_path_mode()
+
     # ------------------------------------------------------------------ UI
     def _build_ui(self) -> None:
         pad = {"padx": 8, "pady": 4}
         root = self.root
+        root.title(t("DS4 / DualSense 手柄扬声器测试工具") + "  %s" % APP_VERSION)
+
+        # ---- 0. 语言 / Language ------------------------------------------
+        lang_frame = ttk.Frame(root)
+        lang_frame.pack(fill="x", padx=8, pady=(6, 0))
+        ttk.Label(lang_frame, text=t("语言 / Language") + ":").pack(side="left")
+        self.lang_var = tk.StringVar(value=LANG_NAMES.get(current_lang(), current_lang()))
+        lang_combo = ttk.Combobox(lang_frame, textvariable=self.lang_var, state="readonly",
+                                  width=14, values=[LANG_NAMES["zh"], LANG_NAMES["en"]])
+        lang_combo.pack(side="left", padx=6)
+        lang_combo.bind("<<ComboboxSelected>>", self._on_lang_selected)
+        ttk.Label(lang_frame, text="%s %s  ·  DeepSeek-v4.1-Flash" % (t("版本"), APP_VERSION),
+                  foreground="#666").pack(side="right")
 
         # ---- 1. 输出设备 -------------------------------------------------
-        dev_frame = ttk.LabelFrame(root, text="1. 输出通路与设备")
+        dev_frame = ttk.LabelFrame(root, text=t("1. 输出通路与设备"))
         dev_frame.pack(fill="x", **pad)
 
         self.path_mode = tk.StringVar(value="bt")
-        ttk.Radiobutton(dev_frame, text="手柄内置扬声器（HID + SBC：蓝牙 或 官方USB无线适配器）",
+        ttk.Radiobutton(dev_frame, text=t("手柄内置扬声器（HID + SBC：蓝牙 或 官方USB无线适配器）"),
                         variable=self.path_mode, value="bt",
                         command=self._update_path_mode).grid(row=0, column=0, columnspan=2,
                                                              sticky="w", padx=6, pady=(4, 0))
-        ttk.Radiobutton(dev_frame, text="Windows 音频端点（USB数据线/蓝牙 的 3.5mm 耳机口）",
+        ttk.Radiobutton(dev_frame, text=t("Windows 音频端点（USB数据线/蓝牙 的 3.5mm 耳机口）"),
                         variable=self.path_mode, value="endpoint",
                         command=self._update_path_mode).grid(row=0, column=2, columnspan=2,
                                                              sticky="w", padx=6, pady=(4, 0))
 
-        ttk.Label(dev_frame, text="报告通路字节").grid(row=1, column=0, sticky="e", padx=6, pady=4)
-        self.bt_out_var = tk.StringVar(value="0x02（内置扬声器，默认）")
+        ttk.Label(dev_frame, text=t("报告通路字节")).grid(row=1, column=0, sticky="e", padx=6, pady=4)
+        self.bt_out_var = tk.StringVar(value=t("0x02（内置扬声器，默认）"))
         self.bt_out_combo = ttk.Combobox(dev_frame, textvariable=self.bt_out_var, state="readonly",
                                          width=26,
-                                         values=["0x02（内置扬声器，默认）", "0x24（3.5mm 耳机孔）",
+                                         values=[t("0x02（内置扬声器，默认）"), t("0x24（3.5mm 耳机孔）"),
                                                  "0x00", "0x03"])
         self.bt_out_combo.grid(row=1, column=1, sticky="w", pady=4)
         self.bt_info_var = tk.StringVar(value="")
@@ -101,12 +147,12 @@ class SpeakerTestApp:
         self.dev_combo.grid(row=2, column=0, columnspan=4, sticky="we", padx=6, pady=4)
         self.dev_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_device_changed())
 
-        ttk.Button(dev_frame, text="刷新设备", command=self.refresh_devices).grid(
+        ttk.Button(dev_frame, text=t("刷新设备"), command=self.refresh_devices).grid(
             row=3, column=0, sticky="w", padx=6, pady=(0, 6))
-        ttk.Button(dev_frame, text="只显示手柄端点", command=self._select_ds4_only).grid(
+        ttk.Button(dev_frame, text=t("只显示手柄端点"), command=self._select_ds4_only).grid(
             row=3, column=1, sticky="w", padx=6, pady=(0, 6))
         self.exclusive_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(dev_frame, text="WASAPI 独占模式（仅音频端点）",
+        ttk.Checkbutton(dev_frame, text=t("WASAPI 独占模式（仅音频端点）"),
                         variable=self.exclusive_var).grid(row=3, column=2, sticky="w", padx=6, pady=(0, 6))
         self.dev_info_var = tk.StringVar(value="")
         ttk.Label(dev_frame, textvariable=self.dev_info_var, foreground="#0a5").grid(
@@ -114,33 +160,33 @@ class SpeakerTestApp:
         dev_frame.columnconfigure(0, weight=1)
 
         # ---- 2. 测试音频 -------------------------------------------------
-        src_frame = ttk.LabelFrame(root, text="2. 测试音频（可自定义）")
+        src_frame = ttk.LabelFrame(root, text=t("2. 测试音频（可自定义）"))
         src_frame.pack(fill="x", **pad)
 
         self.src_mode = tk.StringVar(value="builtin")
-        ttk.Radiobutton(src_frame, text="内置测试信号", variable=self.src_mode, value="builtin",
+        ttk.Radiobutton(src_frame, text=t("内置测试信号"), variable=self.src_mode, value="builtin",
                         command=self._update_src_state).grid(row=0, column=0, sticky="w", padx=6, pady=3)
         self.sig_var = tk.StringVar(value=SIGNAL_LABELS[0])
         self.sig_combo = ttk.Combobox(src_frame, textvariable=self.sig_var, values=SIGNAL_LABELS,
                                       state="readonly", width=52)
         self.sig_combo.grid(row=0, column=1, columnspan=3, sticky="we", padx=6, pady=3)
 
-        ttk.Label(src_frame, text="频率(Hz)").grid(row=1, column=0, sticky="e", padx=6)
+        ttk.Label(src_frame, text=t("频率(Hz)")).grid(row=1, column=0, sticky="e", padx=6)
         self.freq_var = tk.StringVar(value="1000")
         ttk.Entry(src_frame, textvariable=self.freq_var, width=10).grid(row=1, column=1, sticky="w")
-        ttk.Label(src_frame, text="时长(秒, 0=默认)").grid(row=1, column=2, sticky="e")
+        ttk.Label(src_frame, text=t("时长(秒, 0=默认)")).grid(row=1, column=2, sticky="e")
         self.dur_var = tk.StringVar(value="0")
         ttk.Entry(src_frame, textvariable=self.dur_var, width=10).grid(row=1, column=3, sticky="w")
 
-        ttk.Radiobutton(src_frame, text="自定义音频文件", variable=self.src_mode, value="file",
+        ttk.Radiobutton(src_frame, text=t("自定义音频文件"), variable=self.src_mode, value="file",
                         command=self._update_src_state).grid(row=2, column=0, sticky="w", padx=6, pady=3)
         self.file_var = tk.StringVar(value="")
         self.file_entry = ttk.Entry(src_frame, textvariable=self.file_var, width=60)
         self.file_entry.grid(row=2, column=1, columnspan=2, sticky="we", padx=6, pady=3)
-        self.browse_btn = ttk.Button(src_frame, text="浏览...", command=self._browse_file)
+        self.browse_btn = ttk.Button(src_frame, text=t("浏览..."), command=self._browse_file)
         self.browse_btn.grid(row=2, column=3, sticky="w", padx=6)
 
-        ttk.Label(src_frame, text="起始(秒)").grid(row=3, column=0, sticky="e", padx=6)
+        ttk.Label(src_frame, text=t("起始(秒)")).grid(row=3, column=0, sticky="e", padx=6)
         self.start_var = tk.StringVar(value="0")
         ttk.Entry(src_frame, textvariable=self.start_var, width=10).grid(row=3, column=1, sticky="w")
         self.file_info_var = tk.StringVar(value="支持 wav / mp3 / flac / ogg / m4a 等（非 WAV 由内置 ffmpeg 解码）")
@@ -149,10 +195,10 @@ class SpeakerTestApp:
         src_frame.columnconfigure(1, weight=1)
 
         # ---- 3. 播放设置 -------------------------------------------------
-        set_frame = ttk.LabelFrame(root, text="3. 播放设置")
+        set_frame = ttk.LabelFrame(root, text=t("3. 播放设置"))
         set_frame.pack(fill="x", **pad)
 
-        ttk.Label(set_frame, text="音量").grid(row=0, column=0, sticky="e", padx=6)
+        ttk.Label(set_frame, text=t("音量")).grid(row=0, column=0, sticky="e", padx=6)
         self.vol_var = tk.DoubleVar(value=0.0)
         self.vol_scale = ttk.Scale(set_frame, from_=-40.0, to=20.0, variable=self.vol_var,
                                    orient="horizontal", length=260, command=lambda _v: self._update_vol_label())
@@ -160,30 +206,30 @@ class SpeakerTestApp:
         self.vol_label = tk.StringVar(value="0.0 dB")
         ttk.Label(set_frame, textvariable=self.vol_label, width=10).grid(row=0, column=2, sticky="w")
 
-        ttk.Label(set_frame, text="声道路由").grid(row=0, column=3, sticky="e", padx=6)
+        ttk.Label(set_frame, text=t("声道路由")).grid(row=0, column=3, sticky="e", padx=6)
         self.route_var = tk.StringVar(value="both")
         ttk.Combobox(set_frame, textvariable=self.route_var, state="readonly", width=12,
                      values=["both", "left", "right"]).grid(row=0, column=4, sticky="w")
 
         self.loop_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(set_frame, text="循环播放", variable=self.loop_var).grid(
+        ttk.Checkbutton(set_frame, text=t("循环播放"), variable=self.loop_var).grid(
             row=0, column=5, sticky="w", padx=12)
 
         # 蓝牙防卡顿参数（只对蓝牙内置扬声器通路生效）
-        ttk.Label(set_frame, text="预灌缓冲(条)").grid(row=1, column=0, sticky="e", padx=6, pady=(4, 0))
+        ttk.Label(set_frame, text=t("预灌缓冲(条)")).grid(row=1, column=0, sticky="e", padx=6, pady=(4, 0))
         self.lead_var = tk.StringVar(value="6")
         ttk.Entry(set_frame, textvariable=self.lead_var, width=6).grid(
             row=1, column=1, sticky="w", pady=(4, 0))
-        ttk.Label(set_frame, text="送流速率").grid(row=1, column=2, sticky="e", pady=(4, 0))
+        ttk.Label(set_frame, text=t("送流速率")).grid(row=1, column=2, sticky="e", pady=(4, 0))
         self.speed_var = tk.StringVar(value="1.00")
         ttk.Entry(set_frame, textvariable=self.speed_var, width=8).grid(
             row=1, column=3, sticky="w", pady=(4, 0))
-        ttk.Label(set_frame, text="控制刷新(条)").grid(row=1, column=4, sticky="e", pady=(4, 0))
+        ttk.Label(set_frame, text=t("控制刷新(条)")).grid(row=1, column=4, sticky="e", pady=(4, 0))
         self.ctrl_every_var = tk.StringVar(value="20")
         ttk.Entry(set_frame, textvariable=self.ctrl_every_var, width=6).grid(
             row=1, column=5, sticky="w", pady=(4, 0))
         ttk.Label(set_frame, foreground="#666",
-                  text="（仅蓝牙通路：声音断续时，把预灌缓冲加到 12~20，或送流速率改 1.02）").grid(
+                  text=t("（仅蓝牙通路：声音断续时，把预灌缓冲加到 12~20，或送流速率改 1.02）")).grid(
             row=2, column=0, columnspan=6, sticky="w", padx=6, pady=(0, 4))
 
         # ---- 4. 控制 -----------------------------------------------------
@@ -195,11 +241,11 @@ class SpeakerTestApp:
         self.stop_btn.pack(side="left", padx=4)
         ttk.Button(ctrl_frame, text="♪ 完整测试序列", command=self.play_full_sequence).pack(side="left", padx=4)
         ttk.Button(ctrl_frame, text="☀ 灯条/震动自检", command=self._channel_check).pack(side="left", padx=4)
-        self.status_var = tk.StringVar(value="就绪")
+        self.status_var = tk.StringVar(value=t("就绪"))
         ttk.Label(ctrl_frame, textvariable=self.status_var, foreground="#036").pack(side="left", padx=16)
 
         # ---- 5. 电平表 ---------------------------------------------------
-        meter_frame = ttk.LabelFrame(root, text="4. 实时电平表")
+        meter_frame = ttk.LabelFrame(root, text=t("4. 实时电平表"))
         meter_frame.pack(fill="x", **pad)
         self.meter_canvas = tk.Canvas(meter_frame, height=64, background="#111")
         self.meter_canvas.pack(fill="x", padx=8, pady=6)
@@ -207,7 +253,7 @@ class SpeakerTestApp:
         ttk.Label(meter_frame, textvariable=self.clip_var, foreground="#a00").pack(anchor="w", padx=8, pady=(0, 6))
 
         # ---- 6. 回环自检 -------------------------------------------------
-        lb_frame = ttk.LabelFrame(root, text="5. 回环自检（播放测试音频 → 用麦克风录回来 → 自动判定扬声器是否正常）")
+        lb_frame = ttk.LabelFrame(root, text=t("5. 回环自检（播放测试音频 → 用麦克风录回来 → 自动判定扬声器是否正常）"))
         lb_frame.pack(fill="x", **pad)
 
         ttk.Label(lb_frame, foreground="#a60", wraplength=930, justify="left",
@@ -216,12 +262,12 @@ class SpeakerTestApp:
                        "所以请用电脑麦克风对着手柄录音，或选择插在手柄上的耳麦。").grid(
             row=0, column=0, columnspan=3, sticky="w", padx=8, pady=(4, 0))
 
-        self.lb_in_var = tk.StringVar(value="自动（电脑麦克风）")
+        self.lb_in_var = tk.StringVar(value=t("自动（电脑麦克风）"))
         self.lb_in_combo = ttk.Combobox(lb_frame, textvariable=self.lb_in_var, state="readonly", width=92)
         self.lb_in_combo.grid(row=1, column=0, columnspan=3, sticky="we", padx=6, pady=4)
-        self.lb_btn = ttk.Button(lb_frame, text="开始回环自检", command=self.start_loopback)
+        self.lb_btn = ttk.Button(lb_frame, text=t("开始回环自检"), command=self.start_loopback)
         self.lb_btn.grid(row=2, column=0, sticky="w", padx=6, pady=(0, 6))
-        self.lb_save_btn = ttk.Button(lb_frame, text="保存录音为 WAV", command=self.save_recording,
+        self.lb_save_btn = ttk.Button(lb_frame, text=t("保存录音为 WAV"), command=self.save_recording,
                                       state="disabled")
         self.lb_save_btn.grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
         self.lb_result_var = tk.StringVar(
@@ -232,7 +278,7 @@ class SpeakerTestApp:
         lb_frame.columnconfigure(0, weight=1)
 
         # ---- 7. 日志 -----------------------------------------------------
-        log_frame = ttk.LabelFrame(root, text="日志")
+        log_frame = ttk.LabelFrame(root, text=t("日志"))
         log_frame.pack(fill="both", expand=True, **pad)
         self.log = scrolledtext.ScrolledText(log_frame, height=9, wrap="word")
         self.log.pack(fill="both", expand=True, padx=6, pady=6)
@@ -262,7 +308,7 @@ class SpeakerTestApp:
             return
         dev = pick_speaker_device(self.bt_devices)
         if dev is not None:
-            self.bt_info_var.set("已找到：%s" % dev.label)
+            self.bt_info_var.set(t("已找到：%s") % dev.label)
             return
         if self.bt_devices:
             d0 = self.bt_devices[0]
@@ -382,7 +428,7 @@ class SpeakerTestApp:
             return
 
         self.dev_combo["values"] = [d.label for d in self.out_devices]
-        self.lb_in_combo["values"] = ["自动（电脑麦克风）"] + [d.label for d in self.in_devices]
+        self.lb_in_combo["values"] = [t("自动（电脑麦克风）")] + [d.label for d in self.in_devices]
 
         best = pick_output(self.out_devices)
         if best is not None:
@@ -764,7 +810,7 @@ class SpeakerTestApp:
         player.stop()
 
         if rec.shape[0] == 0:
-            self._finish_loopback(None, None, 0, "没有录到任何数据", out_dev, in_dev)
+            self._finish_loopback(None, None, 0, t("没有录到任何数据"), out_dev, in_dev)
             return
         analysis_sr = max(out_sr, in_sr)
         ref = resample(data, out_sr, analysis_sr) if out_sr != analysis_sr else data
@@ -801,7 +847,7 @@ class SpeakerTestApp:
         speaker.close()
 
         if rec.shape[0] == 0:
-            self._finish_loopback(None, None, 0, "没有录到任何数据", None, in_dev)
+            self._finish_loopback(None, None, 0, t("没有录到任何数据"), None, in_dev)
             return
         analysis_sr = max(32000, in_sr)
         ref_r = ref if 32000 == analysis_sr else resample(ref, 32000, analysis_sr)
@@ -828,8 +874,8 @@ class SpeakerTestApp:
                     "频谱相似度 %.2f ｜ 包络相关 %s ｜ 估计延迟 %s\n%s"
                     % (str(result["verdict"]).upper(), result["verdict_text"],
                        result["rec_peak_db_main"], result["rec_rms_db_main"], result["spec_sim"],
-                       "%.2f" % result["env_corr"] if result["env_corr"] is not None else "不适用",
-                       "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else "不适用",
+                       "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
+                       "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用"),
                        note))
             self.lb_result_var.set(text)
             self.log_line("回环自检结果：%s —— %s（%s）"
