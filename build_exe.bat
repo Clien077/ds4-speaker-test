@@ -20,7 +20,7 @@ python -c "import numpy, sounddevice, pywinusb.hid, imageio_ffmpeg, tkinter" || 
 
 echo [2/4] 打包 A：文件夹版（主推）...
 python -m PyInstaller --noconfirm --clean --onedir --windowed ^
-  --name "DS4扬声器测试" ^
+  --name "DS4-Speaker-Test" ^
   --collect-all pywinusb ^
   --hidden-import sounddevice ^
   --hidden-import _sounddevice_data ^
@@ -31,13 +31,13 @@ echo [3/4] 打包 B/C：单文件版...
 rem --runtime-tmpdir . 让单文件版解压到自己所在目录，而不是 %TEMP%
 rem （避免低完整性/杀软环境下 "Could not create temporary directory!"）
 python -m PyInstaller --noconfirm --onefile --windowed --runtime-tmpdir . ^
-  --name "DS4扬声器测试(单文件)" ^
+  --name "DS4-Speaker-Test-Single" ^
   --collect-all pywinusb ^
   --hidden-import sounddevice ^
   --hidden-import _sounddevice_data ^
   ds4_speaker_test.py
 python -m PyInstaller --noconfirm --onefile --console --runtime-tmpdir . ^
-  --name "DS4扬声器测试-CLI" ^
+  --name "DS4-Speaker-Test-CLI" ^
   --collect-all pywinusb ^
   --hidden-import sounddevice ^
   --hidden-import _sounddevice_data ^
@@ -45,16 +45,16 @@ python -m PyInstaller --noconfirm --onefile --console --runtime-tmpdir . ^
 
 echo [4/4] 整理交付目录 release\ ...
 if not exist release mkdir release
-if exist "dist\DS4扬声器测试" xcopy /E /I /Y /Q "dist\DS4扬声器测试" "release\DS4扬声器测试" >nul
-if exist "dist\DS4扬声器测试(单文件).exe" copy /Y "dist\DS4扬声器测试(单文件).exe" "release\" >nul
-if exist "dist\DS4扬声器测试-CLI.exe" copy /Y "dist\DS4扬声器测试-CLI.exe" "release\" >nul
-if exist "使用说明.txt" copy /Y "使用说明.txt" "release\" >nul
+if exist "dist\DS4-Speaker-Test" xcopy /E /I /Y /Q "dist\DS4-Speaker-Test" "release\DS4-Speaker-Test" >nul
+if exist "dist\DS4-Speaker-Test-Single.exe" copy /Y "dist\DS4-Speaker-Test-Single.exe" "release\" >nul
+if exist "dist\DS4-Speaker-Test-CLI.exe" copy /Y "dist\DS4-Speaker-Test-CLI.exe" "release\" >nul
+if exist "USAGE.txt" copy /Y "USAGE.txt" "release\" >nul
 
 echo.
 echo 完成！交付文件在： %~dp0release\
-echo     release\DS4扬声器测试\DS4扬声器测试.exe      （推荐：双击即用）
-echo     release\DS4扬声器测试(单文件).exe
-echo     release\DS4扬声器测试-CLI.exe
+echo     release\DS4-Speaker-Test\DS4-Speaker-Test.exe      （推荐：双击即用）
+echo     release\DS4-Speaker-Test-Single.exe
+echo     release\DS4-Speaker-Test-CLI.exe
 echo.
 echo 提示：
 echo   1) 文件夹版运行时不解压任何文件，最稳、启动也最快；
