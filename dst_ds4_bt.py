@@ -368,7 +368,7 @@ class SbcParams:
     frame_length: int
 
     def describe(self) -> str:
-        return ("%d Hz / %d 子带 / %d 块 / %s / %s / 比特池 %d / 帧长 %d 字节"
+        return (t("%d Hz / %d 子带 / %d 块 / %s / %s / 比特池 %d / 帧长 %d 字节")
                 % (self.samplerate, self.subbands, self.blocks, self.mode,
                    self.allocation, self.bitpool, self.frame_length))
 
@@ -454,7 +454,7 @@ def _run_ffmpeg(cmd: List[str], stdin_data: Optional[bytes] = None) -> bytes:
                           stderr=subprocess.PIPE, creationflags=flags, check=False)
     if proc.returncode != 0 or not proc.stdout:
         err = (proc.stderr or b"").decode("utf-8", "replace").strip().splitlines()
-        raise AudioError("SBC 编码失败：%s" % (" | ".join(err[-3:]) if err else "未知错误"))
+        raise AudioError("SBC 编码失败：%s" % (" | ".join(err[-3:]) if err else t("未知错误")))
     return proc.stdout
 
 
@@ -743,13 +743,13 @@ class Ds4BtSpeaker:
         self.result = StreamResult()
 
     def describe(self) -> str:
-        rid = "自动(0x17/0x14)" if not self.report_id else "0x%02X/%d 字节" % (
+        rid = t("自动(0x17/0x14)") if not self.report_id else t("0x%02X/%d 字节") % (
             self.report_id, self.report_size)
-        return ("报告 %s / 写入 %d 字节 / 第3字节 0x%02X / 通路 0x%02X / 音量 %d / "
-                "灯条 %s / 预灌 %d 条 / 速率 x%.2f / 控制刷新 %s" % (
+        return (t("报告 %s / 写入 %d 字节 / 第3字节 0x%02X / 通路 0x%02X / 音量 %d / ")
+                + t("灯条 %s / 预灌 %d 条 / 速率 x%.2f / 控制刷新 %s") % (
                     rid, self.write_size, self.byte2, self.output_mode, self.volume,
                     self.led, self.lead_reports, self.speed,
-                    ("每 %d 条" % self.control_every) if self.control_every else "关闭"))
+                    (t("每 %d 条") % self.control_every) if self.control_every else t("关闭")))
 
     # ---------------------------------------------------------------- 设备
     def open(self) -> None:
