@@ -189,7 +189,7 @@ class SpeakerTestApp:
         ttk.Label(src_frame, text=t("起始(秒)")).grid(row=3, column=0, sticky="e", padx=6)
         self.start_var = tk.StringVar(value="0")
         ttk.Entry(src_frame, textvariable=self.start_var, width=10).grid(row=3, column=1, sticky="w")
-        self.file_info_var = tk.StringVar(value="支持 wav / mp3 / flac / ogg / m4a 等（非 WAV 由内置 ffmpeg 解码）")
+        self.file_info_var = tk.StringVar(value=t("支持 wav / mp3 / flac / ogg / m4a 等（非 WAV 由内置 ffmpeg 解码）"))
         ttk.Label(src_frame, textvariable=self.file_info_var, foreground="#666").grid(
             row=4, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 6))
         src_frame.columnconfigure(1, weight=1)
@@ -235,12 +235,12 @@ class SpeakerTestApp:
         # ---- 4. 控制 -----------------------------------------------------
         ctrl_frame = ttk.Frame(root)
         ctrl_frame.pack(fill="x", **pad)
-        self.play_btn = ttk.Button(ctrl_frame, text="▶ 开始播放", command=self.start_play)
+        self.play_btn = ttk.Button(ctrl_frame, text=t("▶ 开始播放"), command=self.start_play)
         self.play_btn.pack(side="left", padx=4)
-        self.stop_btn = ttk.Button(ctrl_frame, text="■ 停止", command=self.stop_play)
+        self.stop_btn = ttk.Button(ctrl_frame, text=t("■ 停止"), command=self.stop_play)
         self.stop_btn.pack(side="left", padx=4)
-        ttk.Button(ctrl_frame, text="♪ 完整测试序列", command=self.play_full_sequence).pack(side="left", padx=4)
-        ttk.Button(ctrl_frame, text="☀ 灯条/震动自检", command=self._channel_check).pack(side="left", padx=4)
+        ttk.Button(ctrl_frame, text=t("♪ 完整测试序列"), command=self.play_full_sequence).pack(side="left", padx=4)
+        ttk.Button(ctrl_frame, text=t("☀ 灯条/震动自检"), command=self._channel_check).pack(side="left", padx=4)
         self.status_var = tk.StringVar(value=t("就绪"))
         ttk.Label(ctrl_frame, textvariable=self.status_var, foreground="#036").pack(side="left", padx=16)
 
@@ -249,7 +249,7 @@ class SpeakerTestApp:
         meter_frame.pack(fill="x", **pad)
         self.meter_canvas = tk.Canvas(meter_frame, height=64, background="#111")
         self.meter_canvas.pack(fill="x", padx=8, pady=6)
-        self.clip_var = tk.StringVar(value="削波计数：0")
+        self.clip_var = tk.StringVar(value=t("削波计数：0"))
         ttk.Label(meter_frame, textvariable=self.clip_var, foreground="#a00").pack(anchor="w", padx=8, pady=(0, 6))
 
         # ---- 6. 回环自检 -------------------------------------------------
@@ -257,9 +257,9 @@ class SpeakerTestApp:
         lb_frame.pack(fill="x", **pad)
 
         ttk.Label(lb_frame, foreground="#a60", wraplength=930, justify="left",
-                  text="注意：DS4（DualShock 4）没有内置麦克风，Windows 里的 “麦克风 (…Wireless Controller)” "
-                       "是 3.5mm 耳机口上的耳麦麦克风（要插带麦耳机才有信号）。"
-                       "所以请用电脑麦克风对着手柄录音，或选择插在手柄上的耳麦。").grid(
+                  text=t("注意：DS4（DualShock 4）没有内置麦克风，Windows 里的 “麦克风 (…Wireless Controller)” ")
+                       + t("是 3.5mm 耳机口上的耳麦麦克风（要插带麦耳机才有信号）。")
+                       + t("所以请用电脑麦克风对着手柄录音，或选择插在手柄上的耳麦。")).grid(
             row=0, column=0, columnspan=3, sticky="w", padx=8, pady=(4, 0))
 
         self.lb_in_var = tk.StringVar(value=t("自动（电脑麦克风）"))
@@ -271,8 +271,8 @@ class SpeakerTestApp:
                                       state="disabled")
         self.lb_save_btn.grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
         self.lb_result_var = tk.StringVar(
-            value="尚未测试。自检会把上面的测试音频播放 1 遍，同时用所选麦克风录音并对比，"
-                  "据此判断手柄扬声器是否真的出声。")
+            value=t("尚未测试。自检会把上面的测试音频播放 1 遍，同时用所选麦克风录音并对比，")
+                  + t("据此判断手柄扬声器是否真的出声。"))
         ttk.Label(lb_frame, textvariable=self.lb_result_var, wraplength=930, justify="left",
                   foreground="#036").grid(row=3, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 6))
         lb_frame.columnconfigure(0, weight=1)
@@ -296,7 +296,7 @@ class SpeakerTestApp:
         self.refresh_bt_device()          # 两种通路都刷新手柄状态提示
         if not bt:
             self._on_device_changed()
-        self.log_line("输出通路：%s" % ("手柄内置扬声器（HID + SBC）" if bt else "Windows 音频端点（耳机口）"))
+        self.log_line(t("输出通路：%s") % (t("手柄内置扬声器（HID + SBC）") if bt else t("Windows 音频端点（耳机口）")))
 
     def refresh_bt_device(self) -> None:
         """刷新手柄 HID 状态，并在"能不能驱动扬声器"这一点上自动选好通路。"""
@@ -313,16 +313,16 @@ class SpeakerTestApp:
         if self.bt_devices:
             d0 = self.bt_devices[0]
             self.bt_info_var.set(
-                "手柄：%s —— 没有音频报告，内置扬声器不可用；插耳机可测 3.5mm 耳机口"
+                t("手柄：%s —— 没有音频报告，内置扬声器不可用；插耳机可测 3.5mm 耳机口")
                 % d0.transport_text)
             # 自动切到"Windows 音频端点（有线）"通路，避免用户点了没反应
             if self.path_mode.get() == "bt":
                 self.path_mode.set("endpoint")
                 self._update_path_mode()
-                self.log_line("检测到 USB 数据线连接：已自动切到「Windows 音频端点」通路。")
+                self.log_line(t("检测到 USB 数据线连接：已自动切到「Windows 音频端点」通路。"))
                 self.log_line("内置扬声器在数据线连接下物理上无法驱动；"
-                              "想测扬声器请用蓝牙直连或索尼官方 USB 无线适配器 CUH-ZWA1。")
-                self.log_line("当前通路可测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。")
+                              + "想测扬声器请用蓝牙直连或索尼官方 USB 无线适配器 CUH-ZWA1。")
+                self.log_line(t("当前通路可测 3.5mm 耳机口（插耳机）+ 灯条/震动自检。"))
         else:
             self.bt_info_var.set("没有找到 PlayStation 手柄 HID 接口")
 
@@ -336,7 +336,7 @@ class SpeakerTestApp:
                 sp.open()
                 try:
                     sp.send_control_report((0, 60))
-                    self.log_line("已通过 %s 通路发送 0x11 报告：灯条应变绿、手柄震一下。" % sp.describe())
+                    self.log_line(t("已通过 %s 通路发送 0x11 报告：灯条应变绿、手柄震一下。") % sp.describe())
                     time.sleep(0.4)
                     sp.send_control_report((0, 0))
                 finally:
@@ -345,13 +345,13 @@ class SpeakerTestApp:
             usb_dev = next((d for d in self.bt_devices
                             if USB_REPORT_ID in d.output_report_ids), None)
             if usb_dev is None:
-                messagebox.showwarning(APP_TITLE, "没有找到可用于自检的手柄 HID 接口。")
+                messagebox.showwarning(APP_TITLE, t("没有找到可用于自检的手柄 HID 接口。"))
                 return
             usb_channel_check(usb_dev, (0, 255, 0), 200, hold=1.5)
             self.log_line("已通过 USB 0x05 报告发送：灯条应变绿、手柄震一下"
-                          "（该通路没有音频数据）。")
+                          + "（该通路没有音频数据）。")
         except Exception as exc:  # noqa: BLE001
-            messagebox.showerror(APP_TITLE, "灯条/震动自检失败：%s" % exc)
+            messagebox.showerror(APP_TITLE, t("灯条/震动自检失败：%s") % exc)
 
     def bt_output_mode(self) -> int:
         text = self.bt_out_var.get().strip()
@@ -375,10 +375,10 @@ class SpeakerTestApp:
         if self.src_mode.get() == "file":
             path = os.path.expanduser(self.file_var.get().strip().strip('"'))
             if not path or not os.path.isfile(path):
-                raise AudioError("请先选择一个有效的音频文件")
+                raise AudioError(t("请先选择一个有效的音频文件"))
             frames, params = encode_sbc_file(path, gain_db=gain, channel=channel,
                                              start=start, duration=dur)
-            desc = "自定义文件 %s（%.1f 秒）" % (os.path.basename(path),
+            desc = t("自定义文件 %s（%.1f 秒）") % (os.path.basename(path),
                                             len(frames) / SBC_FRAMES_PER_SECOND)
         else:
             try:
@@ -388,7 +388,7 @@ class SpeakerTestApp:
             data, text = build_signal(self._selected_signal_key(), samplerate=32000, channels=2,
                                       duration=dur or None, freq=freq, amplitude=0.9)
             frames, params = encode_sbc_pcm(data, gain_db=gain, channel=channel)
-            desc = "内置信号 %s（%.1f 秒）" % (text, len(frames) / SBC_FRAMES_PER_SECOND)
+            desc = t("内置信号 %s（%.1f 秒）") % (text, len(frames) / SBC_FRAMES_PER_SECOND)
         return frames, params, desc
 
     def _bt_tuning(self):
@@ -408,11 +408,11 @@ class SpeakerTestApp:
         if dev is None:
             raise RuntimeError(
                 "当前手柄接口没有暴露音频报告（0x14/0x17），无法驱动内置扬声器。\n\n"
-                "能驱动内置扬声器的两种连接方式：\n"
-                "  ① 蓝牙直连：拔掉 USB 线，长按手柄 Share + PS 键配对电脑；\n"
-                "  ② 索尼官方 USB 无线适配器 CUH-ZWA1：配对后插在 USB 口上。\n\n"
-                "只有 USB 数据线时，请用「Windows 音频端点」通路测 3.5mm 耳机口"
-                "（插耳机），或点「灯条/震动自检」确认链路。")
+                + "能驱动内置扬声器的两种连接方式：\n"
+                + "  ① 蓝牙直连：拔掉 USB 线，长按手柄 Share + PS 键配对电脑；\n"
+                + "  ② 索尼官方 USB 无线适配器 CUH-ZWA1：配对后插在 USB 口上。\n\n"
+                + "只有 USB 数据线时，请用「Windows 音频端点」通路测 3.5mm 耳机口"
+                + "（插耳机），或点「灯条/震动自检」确认链路。")
         lead, speed, ctrl_every = self._bt_tuning()
         return Ds4BtSpeaker(dev, output_mode=self.bt_output_mode(),
                             frames_per_report=4, lead_reports=lead, speed=speed,
@@ -424,7 +424,7 @@ class SpeakerTestApp:
             self.out_devices = [d for d in list_devices("output") if d.max_output_channels > 0]
             self.in_devices = [d for d in list_devices("input") if d.max_input_channels > 0]
         except Exception as exc:  # noqa: BLE001
-            messagebox.showerror(APP_TITLE, "查询音频设备失败：%s" % exc)
+            messagebox.showerror(APP_TITLE, t("查询音频设备失败：%s") % exc)
             return
 
         self.dev_combo["values"] = [d.label for d in self.out_devices]
@@ -438,8 +438,8 @@ class SpeakerTestApp:
                     break
         self._on_device_changed()
         self.refresh_bt_device()
-        self.log_line("已刷新设备：输出 %d 个，输入 %d 个；已自动选择 %s"
-                      % (len(self.out_devices), len(self.in_devices), best.name if best else "无"))
+        self.log_line(t("已刷新设备：输出 %d 个，输入 %d 个；已自动选择 %s")
+                      % (len(self.out_devices), len(self.in_devices), best.name if best else t("无")))
 
     def _select_ds4_only(self) -> None:
         ds4 = [d for d in self.out_devices if d.is_ds4]
@@ -473,15 +473,15 @@ class SpeakerTestApp:
         ch = max(1, min(2, dev.max_output_channels))
         notes = []
         if dev.is_ds4:
-            notes.append("已识别为手柄音频端点")
+            notes.append(t("已识别为手柄音频端点"))
         else:
-            notes.append("未识别到手柄端点，声音会送到该设备")
+            notes.append(t("未识别到手柄端点，声音会送到该设备"))
         if "wasapi" not in dev.hostapi_name.lower():
-            notes.append("非 WASAPI 端点（低延迟建议选 WASAPI）")
-        self.dev_info_var.set("采样率 %d Hz · 声道 %d · %s" % (sr, ch, "；".join(notes)))
+            notes.append(t("非 WASAPI 端点（低延迟建议选 WASAPI）"))
+        self.dev_info_var.set(t("采样率 %d Hz · 声道 %d · %s") % (sr, ch, "；".join(notes)))
 
     def _browse_file(self) -> None:
-        path = filedialog.askopenfilename(title="选择测试音频", filetypes=FILE_TYPES)
+        path = filedialog.askopenfilename(title=t("选择测试音频"), filetypes=FILE_TYPES)
         if not path:
             return
         self.file_var.set(path)
@@ -493,7 +493,7 @@ class SpeakerTestApp:
                                    % (os.path.basename(path), info["duration"],
                                       info["samplerate"], info["channels"]))
         else:
-            self.file_info_var.set("无法读取该文件：%s" % info.get("error", "未知错误"))
+            self.file_info_var.set("无法读取该文件：%s" % info.get("error", t("未知错误")))
 
     def _update_src_state(self) -> None:
         builtin = self.src_mode.get() == "builtin"
@@ -526,7 +526,7 @@ class SpeakerTestApp:
         if mode == "file":
             path = os.path.expanduser(self.file_var.get().strip().strip('"'))
             if not path or not os.path.isfile(path):
-                raise AudioError("请先选择一个有效的音频文件")
+                raise AudioError(t("请先选择一个有效的音频文件"))
             data, sr = load_audio(path, samplerate=samplerate, channels=channels)
             try:
                 start = float(self.start_var.get() or 0)
@@ -537,7 +537,7 @@ class SpeakerTestApp:
             except ValueError:
                 dur = 0.0
             data = slice_audio(data, sr, start, dur)
-            desc = "自定义文件 %s（%.1f 秒）" % (os.path.basename(path), data.shape[0] / sr)
+            desc = t("自定义文件 %s（%.1f 秒）") % (os.path.basename(path), data.shape[0] / sr)
         else:
             key = self._selected_signal_key()
             try:
@@ -550,24 +550,24 @@ class SpeakerTestApp:
                 dur = 0.0
             data, text = build_signal(key, samplerate=samplerate, channels=channels,
                                       duration=dur or None, freq=freq)
-            desc = "内置信号 %s（%.1f 秒）" % (text, data.shape[0] / samplerate)
+            desc = t("内置信号 %s（%.1f 秒）") % (text, data.shape[0] / samplerate)
         data = map_channels(data, channels)
         data = route_channels(data, self.route_var.get())
         if data.shape[0] == 0:
-            raise AudioError("音频长度为 0，请检查起始 / 时长设置")
+            raise AudioError(t("音频长度为 0，请检查起始 / 时长设置"))
         return np.ascontiguousarray(data, dtype=np.float32), desc
 
     # ---------------------------------------------------------------- 播放
     def start_play(self, signal_override: Optional[str] = None) -> None:
         if self.busy:
-            messagebox.showinfo(APP_TITLE, "正在执行回环自检，请稍候。")
+            messagebox.showinfo(APP_TITLE, t("正在执行回环自检，请稍候。"))
             return
         if self.is_bt_mode():
             self._start_bt_play(signal_override)
             return
         dev = self.current_output()
         if dev is None:
-            messagebox.showwarning(APP_TITLE, "请先选择输出设备。")
+            messagebox.showwarning(APP_TITLE, t("请先选择输出设备。"))
             return
         if self.player is not None and self.player.is_playing:
             self.stop_play()
@@ -578,11 +578,11 @@ class SpeakerTestApp:
             if signal_override:
                 data, _ = build_signal(signal_override, samplerate=samplerate, channels=channels)
                 data = route_channels(map_channels(data, channels), self.route_var.get())
-                desc = "完整测试序列（%.0f 秒）" % (data.shape[0] / samplerate)
+                desc = t("完整测试序列（%.0f 秒）") % (data.shape[0] / samplerate)
             else:
                 data, desc = self.build_source(samplerate, channels)
         except Exception as exc:  # noqa: BLE001
-            messagebox.showerror(APP_TITLE, "准备音频失败：%s" % exc)
+            messagebox.showerror(APP_TITLE, t("准备音频失败：%s") % exc)
             return
 
         gain = self._gain()
@@ -595,10 +595,10 @@ class SpeakerTestApp:
             self.player.start(data)
         except RuntimeError as exc:
             messagebox.showerror(APP_TITLE, str(exc))
-            self.log_line("播放失败：%s" % exc)
+            self.log_line(t("播放失败：%s") % exc)
             return
 
-        self.log_line("播放到 %s —— %s，音量 %+.1f dB，峰值 %.1f dBFS"
+        self.log_line(t("播放到 %s —— %s，音量 %+.1f dB，峰值 %.1f dBFS")
                       % (dev.name, desc, self.vol_var.get(),
                          20 * np.log10(max(float(np.max(np.abs(data))) * gain, 1e-9))))
         self.status_var.set("播放中…")
@@ -630,7 +630,7 @@ class SpeakerTestApp:
                 data, text = build_signal(signal_override, samplerate=32000, channels=2)
                 frames, params = encode_sbc_pcm(data, gain_db=float(self.vol_var.get()),
                                                 channel=self.route_var.get())
-                desc = "完整测试序列（%.0f 秒）" % (len(frames) / SBC_FRAMES_PER_SECOND)
+                desc = t("完整测试序列（%.0f 秒）") % (len(frames) / SBC_FRAMES_PER_SECOND)
             else:
                 frames, params, desc = self._build_bt_frames()
         except (RuntimeError, AudioError) as exc:
@@ -641,9 +641,9 @@ class SpeakerTestApp:
         self.bt_streaming = True
         self.bt_progress = (0, len(frames))
         self.status_var.set("蓝牙推流中…")
-        self.log_line("蓝牙推流：%s；SBC %s；输出=%s" % (
+        self.log_line(t("蓝牙推流：%s；SBC %s；输出=%s") % (
             desc, params.describe(),
-            "内置扬声器" if self.bt_output_mode() == "speaker" else "3.5mm 耳机口"))
+            t("内置扬声器") if self.bt_output_mode() == "speaker" else t("3.5mm 耳机口")))
         threading.Thread(target=self._bt_play_worker,
                          args=(speaker, frames, desc), daemon=True).start()
 
@@ -668,19 +668,19 @@ class SpeakerTestApp:
         self.bt_streaming = False
         if error:
             self.status_var.set("蓝牙推流出错")
-            self.log_line("蓝牙推流失败：%s" % error)
+            self.log_line(t("蓝牙推流失败：%s") % error)
             messagebox.showerror(APP_TITLE, "蓝牙推流失败：%s\n\n"
-                                 "提示：确认手柄是蓝牙连接；若 DS4Windows 正独占该设备请先退出它。" % error)
+                                 + t("提示：确认手柄是蓝牙连接；若 DS4Windows 正独占该设备请先退出它。") % error)
             return
         if result is None:
             self.status_var.set("已停止")
             return
         self.status_var.set("蓝牙推流结束：%d 帧 / %.1f 秒" % (result.frames_sent, result.audio_seconds))
-        self.log_line("蓝牙推流结束：%d 条报告 / %d 帧 / %.2f 秒音频（报告 %d 字节，迟到 %d 次）"
+        self.log_line(t("蓝牙推流结束：%d 条报告 / %d 帧 / %.2f 秒音频（报告 %d 字节，迟到 %d 次）")
                       % (result.reports_sent, result.frames_sent, result.audio_seconds,
                          result.report_size_used, result.late_reports))
         if result.late_reports > 5:
-            self.log_line("提示：有 %d 条报告迟到，若听到卡顿可改用 2 帧报告模式。" % result.late_reports)
+            self.log_line(t("提示：有 %d 条报告迟到，若听到卡顿可改用 2 帧报告模式。") % result.late_reports)
 
     # -------------------------------------------------------------- 电平表
     def _poll_meter(self) -> None:
@@ -716,7 +716,7 @@ class SpeakerTestApp:
         if frac > 0:
             c.create_rectangle(6, 10, 6 + frac * (w - 12), h - 10, outline="", fill="#3498db")
         c.create_text(w // 2, h // 2, fill="#fff",
-                      text="蓝牙推流 %d/%d 帧  %.1f 秒" % (sent, total, sent / SBC_FRAMES_PER_SECOND))
+                      text=t("蓝牙推流 %d/%d 帧  %.1f 秒") % (sent, total, sent / SBC_FRAMES_PER_SECOND))
 
     def _draw_meter(self) -> None:
         c = self.meter_canvas
@@ -744,30 +744,30 @@ class SpeakerTestApp:
             self.refresh_bt_device()
             in_dev = self.current_input() or pick_input(self.in_devices)
             if in_dev is None:
-                messagebox.showwarning(APP_TITLE, "找不到可用的录音设备。")
+                messagebox.showwarning(APP_TITLE, t("找不到可用的录音设备。"))
                 return
             if in_dev.is_ds4:
-                self.log_line("提示：所选录音设备是手柄耳机口的耳麦，需要插带麦耳机才有信号。")
+                self.log_line(t("提示：所选录音设备是手柄耳机口的耳麦，需要插带麦耳机才有信号。"))
             if self.bt_streaming:
                 self.stop_play()
             self.busy = True
             self.lb_btn.configure(state="disabled")
             self.play_btn.configure(state="disabled")
             self.lb_result_var.set("正在自检：录音 → 蓝牙推流到手柄 → 录音 → 分析，请等待…")
-            self.log_line("蓝牙回环自检：手柄输出 → 输入 %s" % in_dev.name)
+            self.log_line(t("蓝牙回环自检：手柄输出 → 输入 %s") % in_dev.name)
             threading.Thread(target=self._bt_loopback_worker, args=(in_dev,), daemon=True).start()
             return
 
         out_dev = self.current_output()
         if out_dev is None:
-            messagebox.showwarning(APP_TITLE, "请先选择输出设备。")
+            messagebox.showwarning(APP_TITLE, t("请先选择输出设备。"))
             return
         in_dev = self.current_input() or pick_input(self.in_devices, peer=out_dev)
         if in_dev is None:
-            messagebox.showwarning(APP_TITLE, "找不到可用的录音设备。")
+            messagebox.showwarning(APP_TITLE, t("找不到可用的录音设备。"))
             return
         if in_dev.is_ds4:
-            self.log_line("提示：所选录音设备是手柄耳机口的耳麦，需要插带麦耳机才有信号。")
+            self.log_line(t("提示：所选录音设备是手柄耳机口的耳麦，需要插带麦耳机才有信号。"))
         if self.player is not None and self.player.is_playing:
             self.stop_play()
 
@@ -775,7 +775,7 @@ class SpeakerTestApp:
         self.lb_btn.configure(state="disabled")
         self.play_btn.configure(state="disabled")
         self.lb_result_var.set("正在自检：录音 → 播放 → 录音 → 分析，请等待…")
-        self.log_line("回环自检开始：输出 %s → 输入 %s" % (out_dev.name, in_dev.name))
+        self.log_line(t("回环自检开始：输出 %s → 输入 %s") % (out_dev.name, in_dev.name))
         threading.Thread(target=self._loopback_worker, args=(out_dev, in_dev), daemon=True).start()
 
     def _loopback_worker(self, out_dev: AudioDevice, in_dev: AudioDevice) -> None:
@@ -786,7 +786,7 @@ class SpeakerTestApp:
         try:
             data, desc = self.build_source(out_sr, out_ch)
         except Exception as exc:  # noqa: BLE001
-            self._finish_loopback(None, None, 0, "准备音频失败：%s" % exc, out_dev, in_dev)
+            self._finish_loopback(None, None, 0, t("准备音频失败：%s") % exc, out_dev, in_dev)
             return
 
         gain = self._gain()
@@ -817,7 +817,7 @@ class SpeakerTestApp:
         rec_r = resample(rec, in_sr, analysis_sr) if in_sr != analysis_sr else rec
         result = analyze_loopback(ref, rec_r, analysis_sr, preroll_s=preroll)
         self._finish_loopback(result, rec, in_sr,
-                              "播放内容：%s" % desc, out_dev, in_dev)
+                              t("播放内容：%s") % desc, out_dev, in_dev)
 
     def _bt_loopback_worker(self, in_dev: AudioDevice) -> None:
         in_sr = int(round(in_dev.default_samplerate))
@@ -826,7 +826,7 @@ class SpeakerTestApp:
             speaker = self._new_bt_speaker()
             frames, params, desc = self._build_bt_frames()
         except Exception as exc:  # noqa: BLE001
-            self._finish_loopback(None, None, 0, "准备失败：%s" % exc, None, in_dev)
+            self._finish_loopback(None, None, 0, t("准备失败：%s") % exc, None, in_dev)
             return
 
         ref = decode_sbc_frames(frames)
@@ -853,7 +853,7 @@ class SpeakerTestApp:
         ref_r = ref if 32000 == analysis_sr else resample(ref, 32000, analysis_sr)
         rec_r = rec if in_sr == analysis_sr else resample(rec, in_sr, analysis_sr)
         result = analyze_loopback(ref_r, rec_r, analysis_sr, preroll_s=preroll)
-        self._finish_loopback(result, rec, in_sr, "蓝牙内置扬声器回环 · %s" % desc, None, in_dev)
+        self._finish_loopback(result, rec, in_sr, t("蓝牙内置扬声器回环 · %s") % desc, None, in_dev)
 
     def _finish_loopback(self, result, rec, in_sr: int, note: str,
                          out_dev: AudioDevice, in_dev: AudioDevice) -> None:
@@ -863,7 +863,7 @@ class SpeakerTestApp:
             self.play_btn.configure(state="normal")
             if result is None:
                 self.lb_result_var.set("自检失败：%s" % note)
-                self.log_line("回环自检失败：%s" % note)
+                self.log_line(t("回环自检失败：%s") % note)
                 return
             self.last_result = dict(result)
             if rec is not None:
@@ -871,19 +871,19 @@ class SpeakerTestApp:
                 self.last_rec_samplerate = int(in_sr)
                 self.lb_save_btn.configure(state="normal")
             text = ("判定：【%s】%s\n采集电平（播放窗口内）：峰值 %.1f dBFS / RMS %.1f dBFS ｜ "
-                    "频谱相似度 %.2f ｜ 包络相关 %s ｜ 估计延迟 %s\n%s"
+                    + "频谱相似度 %.2f ｜ 包络相关 %s ｜ 估计延迟 %s\n%s"
                     % (str(result["verdict"]).upper(), result["verdict_text"],
                        result["rec_peak_db_main"], result["rec_rms_db_main"], result["spec_sim"],
                        "%.2f" % result["env_corr"] if result["env_corr"] is not None else t("不适用"),
-                       "%.3f 秒" % result["delay_s"] if result["delay_s"] is not None else t("不适用"),
+                       t("%.3f 秒") % result["delay_s"] if result["delay_s"] is not None else t("不适用"),
                        note))
             self.lb_result_var.set(text)
-            self.log_line("回环自检结果：%s —— %s（%s）"
+            self.log_line(t("回环自检结果：%s —— %s（%s）")
                           % (result["verdict"], result["verdict_text"], result["detail"]))
             if result["verdict"] in ("silent", "clipped", "unclear"):
-                self.log_line("排查建议：把麦克风靠近手柄（10~30 cm）；换另一个 'Wireless Controller' "
-                              "输出端点（USB / 蓝牙 A2DP / 蓝牙 HFP 是不同端点）；"
-                              "把音量调到 0 dB 以上，并确认 Windows 音量合成器里该端点音量不为 0。")
+                self.log_line(t("排查建议：把麦克风靠近手柄（10~30 cm）；换另一个 'Wireless Controller' ")
+                              + t("输出端点（USB / 蓝牙 A2DP / 蓝牙 HFP 是不同端点）；")
+                              + t("把音量调到 0 dB 以上，并确认 Windows 音量合成器里该端点音量不为 0。"))
 
         self.root.after(0, apply)
 
@@ -891,14 +891,14 @@ class SpeakerTestApp:
         if self.last_recording is None:
             return
         path = filedialog.asksaveasfilename(
-            title="保存回环录音", defaultextension=".wav",
-            initialfile="ds4_speaker_loopback.wav", filetypes=[("WAV 文件", "*.wav")])
+            title=t("保存回环录音"), defaultextension=".wav",
+            initialfile="ds4_speaker_loopback.wav", filetypes=[(t("WAV 文件"), "*.wav")])
         if not path:
             return
         from dst_audio import write_wav
 
         write_wav(path, self.last_recording, self.last_rec_samplerate, "int16")
-        self.log_line("录音已保存：%s（%d Hz，%.2f 秒）"
+        self.log_line(t("录音已保存：%s（%d Hz，%.2f 秒）")
                       % (path, self.last_rec_samplerate,
                          self.last_recording.shape[0] / float(self.last_rec_samplerate or 1)))
 
