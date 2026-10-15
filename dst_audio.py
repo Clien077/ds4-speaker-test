@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from dst_i18n import t
+
 import math
 import os
 import shutil
@@ -765,13 +767,13 @@ def analyze_loopback(
         "ref_dom_hz": None,
         "rec_dom_hz": None,
         "verdict": "unclear",
-        "verdict_text": "无法判定",
+        "verdict_text": t("无法判定"),
         "detail": "",
     }
 
     if stats["frames"] == 0:
-        result.update(verdict="silent", verdict_text="没有录到任何数据",
-                      detail="录音设备未返回数据")
+        result.update(verdict="silent", verdict_text=t("没有录到任何数据"),
+                      detail=t("录音设备未返回数据"))
         return result
 
     # 1) 频谱形状相似度：即使参考信号是恒定单音也能判定
@@ -815,17 +817,17 @@ def analyze_loopback(
     snr_text = "" if snr_db is None else "（比底噪高 %.1f dB）" % snr_db
 
     if peak_db < silence_db:
-        verdict, text = "silent", "麦克风几乎录不到声音（扬声器没出声 / 音量太低 / 端点或麦克风选错）%s" % snr_text
+        verdict, text = "silent", t("麦克风几乎录不到声音（扬声器没出声 / 音量太低 / 端点或麦克风选错）%s") % snr_text
     elif snr_db is not None and snr_db < 6.0:
-        verdict, text = "silent", "播放窗口内没有比底噪更响的声音，扬声器基本没出声%s" % snr_text
+        verdict, text = "silent", t("播放窗口内没有比底噪更响的声音，扬声器基本没出声%s") % snr_text
     elif clipped_ratio > 5e-3:
-        verdict, text = "clipped", "录到严重削波，音量过大或扬声器已失真"
+        verdict, text = "clipped", t("录到严重削波，音量过大或扬声器已失真")
     elif score >= 0.60 or (snr_db is not None and snr_db >= 20.0 and score >= 0.40):
-        verdict, text = "pass", "扬声器正常出声，且与测试音频高度一致%s" % snr_text
+        verdict, text = "pass", t("扬声器正常出声，且与测试音频高度一致%s") % snr_text
     elif score >= 0.35 or (snr_db is not None and snr_db >= 12.0):
-        verdict, text = "weak", "能听到声音，但与测试音频匹配度偏低（音量偏小/失真/底噪大）%s" % snr_text
+        verdict, text = "weak", t("能听到声音，但与测试音频匹配度偏低（音量偏小/失真/底噪大）%s") % snr_text
     else:
-        verdict, text = "unclear", "录到了声音，但不像是在播放测试音频（可能只录到环境噪声）%s" % snr_text
+        verdict, text = "unclear", t("录到了声音，但不像是在播放测试音频（可能只录到环境噪声）%s") % snr_text
 
     result.update(verdict=verdict, verdict_text=text, score=score)
     detail = "频谱相似度 %.2f" % spec_sim
