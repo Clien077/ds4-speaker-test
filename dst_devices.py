@@ -36,6 +36,7 @@ DS4_PATTERNS: Sequence[str] = (
     r"无线控制器",
     r"无线手柄",
 )
+from dst_i18n import t
 _DS4_RE = re.compile("|".join(DS4_PATTERNS), re.IGNORECASE)
 
 
@@ -104,11 +105,11 @@ class AudioDevice:
 
     @property
     def label(self) -> str:
-        kind = "输出" if self.max_output_channels else "输入"
+        kind = t("输出") if self.max_output_channels else t("输入")
         return "[%d] %s · %s · %s · %d ch · %d Hz%s" % (
             self.index, self.name, self.hostapi_name, kind,
             self.channels, int(self.default_samplerate),
-            " · 系统默认" if self.is_default else "",
+            t(" · 系统默认") if self.is_default else "",
         )
 
     def __str__(self) -> str:  # pragma: no cover - 仅用于打印
@@ -245,12 +246,12 @@ def match_device(spec: Optional[str], kind: str = "output") -> Optional[AudioDev
         for d in devs:
             if d.index == idx:
                 return d
-        raise ValueError("设备序号 %d 不是可用的%s设备" % (idx, "输出" if kind == "output" else "输入"))
+        raise ValueError(t("设备序号 %d 不是可用的%s设备") % (idx, t("输出") if kind == "output" else t("输入")))
 
     low = text.lower()
     hits = [d for d in devs if low in d.name.lower()]
     if not hits:
-        raise ValueError("没有名称包含 %r 的%s设备" % (spec, "输出" if kind == "output" else "输入"))
+        raise ValueError(t("没有名称包含 %r 的%s设备") % (spec, t("输出") if kind == "output" else t("输入")))
     hits.sort(key=lambda d: (not d.is_ds4, d.rank, d.index))
     return hits[0]
 
@@ -261,14 +262,14 @@ def format_device_list(kind: str = "output") -> str:
     lines: List[str] = []
     if kind in ("output", "all"):
         outs = [d for d in devs if d.max_output_channels > 0]
-        lines.append("可用的音频输出设备（%d 个）：" % len(outs))
+        lines.append(t("可用的音频输出设备（%d 个）：") % len(outs))
         for d in outs:
-            lines.append("  " + d.label + ("   ← 手柄扬声器 / 耳机口" if d.is_ds4 else ""))
+            lines.append("  " + d.label + (t("   ← 手柄扬声器 / 耳机口") if d.is_ds4 else ""))
     if kind in ("input", "all"):
         ins = [d for d in devs if d.max_input_channels > 0]
         lines.append("")
-        lines.append("可用的音频输入设备（%d 个）：" % len(ins))
+        lines.append(t("可用的音频输入设备（%d 个）：") % len(ins))
         for d in ins:
             lines.append("  " + d.label + (
-                "   ← 手柄耳机口耳麦（DS4 无内置麦克风，需插带麦耳机）" if d.is_ds4 else ""))
+                t("   ← 手柄耳机口耳麦（DS4 无内置麦克风，需插带麦耳机）") if d.is_ds4 else ""))
     return "\n".join(lines)
